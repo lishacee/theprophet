@@ -71,6 +71,22 @@ export async function resume(env, token){
   return { username: u, nickname: r.nickname, token, isAdmin: await isAdmin(env, u) };
 }
 
+// Đổi mật khẩu: xác thực pass cũ -> đặt pass mới (salt mới) -> xoay token (đá mọi phiên khác).
+export async function changePassword(env, token, oldPassword, newPassword){
+  const username = await authUser(env, token);
+  oldPassword = (oldPassword || '').toString();
+  newPassword = (newPassword || '').toString();
+  const r = await findRow(env, 'Users', 'userLower', username.toLowerCase());
+  if (!r) throw new Error('Phiên hết hạn, đăng nhập lại');
+  if (await hashPass(oldPassword, r.salt) !== r.passHash) throw new Error('Mật khẩu hiện tại không đúng');
+  if (newPassword.length < 4 || newPassword.length > 64) throw new Error('Mật khẩu mới 4–64 ký tự');
+  if (newPassword === oldPassword) throw new Error('Mật khẩu mới trùng mật khẩu cũ');
+  const salt = uuid(), tok = uuid();
+  await updateRow(env, 'Users', { username },
+    { passHash: await hashPass(newPassword, salt), salt, token: tok, tokenExp: Date.now() + TOKEN_TTL_DAYS * 86400000 });
+  return { token: tok };  // client thay token mới để giữ phiên
+}
+
 export async function setNickname(env, token, nickname){
   const username = await authUser(env, token);
   nickname = (nickname || '').toString().trim();

@@ -14,6 +14,7 @@ const REGISTRY = {
   login:       (env, u, p)    => auth.login(env, u, p),
   resume:      (env, t)       => auth.resume(env, t),
   setNickname: (env, t, n)    => auth.setNickname(env, t, n),
+  changePassword: (env, t, o, np) => auth.changePassword(env, t, o, np),
   // Phase 2 — pools + bets
   getPools:    (env, t)                   => pools.getPools(env, t),
   joinPool:    (env, t, id, pw)           => pools.joinPool(env, t, id, pw),

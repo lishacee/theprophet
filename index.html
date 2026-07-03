@@ -4,6 +4,7 @@
   <base target="_top">
   <meta charset="utf-8">
   <meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
+  <title>The Prophet</title>
   <link rel="preconnect" href="https://fonts.googleapis.com">
   <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
   <link href="https://fonts.googleapis.com/css2?family=Outfit:wght@400;500;600;700;800;900&display=swap" rel="stylesheet">
@@ -529,6 +530,7 @@
           <button class="iconbtn" title="Luật chơi" onclick="showRules()">📖</button>
           <button class="iconbtn" title="Đổi giao diện" onclick="cycleTheme()">🎨</button>
           <button class="iconbtn" title="Đổi biệt danh" onclick="editNick()">✎</button>
+          <button class="iconbtn" title="Đổi mật khẩu" onclick="changePwd()">🔑</button>
           <button class="iconbtn" title="Thoát" onclick="logout()">⎋</button>
         </div>
       </div>
@@ -607,14 +609,89 @@ function netStart(){ if(NET++===0){ var b=el('netbar'); if(b) b.classList.add('o
 function netEnd(){ if(--NET<=0){ NET=0; var b=el('netbar'); if(b) b.classList.remove('on'); } }
 // Cloudflare Worker API base. First-party fetch, so Safari keeps the session.
 var WORKER_URL = 'https://the-prophet.lishace.workers.dev';
+// ponytail: mock layer for design previews. Claude Artifact's CSP blocks ALL external fetch,
+// so the real srun can never reach the Worker there. MOCK on -> return canned data, no network.
+// Auto-on inside an Artifact/sandbox host; force anywhere with ?mock=1.
+var MOCK = /[?&]mock=1/.test(location.search) || /claude|usercontent/i.test(location.hostname) || location.origin==='null';
 // Single server-call funnel: POST {fn,args} to the Worker. text/plain body = a "simple"
 // CORS request -> no preflight; the Worker still parses it as JSON.
 function srun(fn){
   var a=[].slice.call(arguments,1); netStart();
+  if(MOCK) return new Promise(function(res){ res(mockRun(fn,a)); }).then(function(d){ netEnd(); return d; }, function(e){ netEnd(); throw e; });
   return fetch(WORKER_URL, { method:'POST', headers:{'Content-Type':'text/plain'}, body:JSON.stringify({fn:fn, args:a}) })
     .then(function(r){ return r.json(); })
     .then(function(j){ netEnd(); if(j && j.ok) return j.data; throw new Error((j && j.error) || 'Lỗi máy chủ'); },
           function(e){ netEnd(); throw e; });
+}
+// Canned data so every screen renders without a backend. Display-only: mutations (placeBet, admin*)
+// resolve as no-op success. Shapes mirror the Worker's responses.
+function mockRun(fn, a){
+  var db = mockRun._db || (mockRun._db = mockData());
+  switch(fn){
+    case 'resume': case 'login': case 'register': return {token:'demo', nickname:'Minh', isAdmin:true};
+    case 'setNickname': return {nickname:a[1]};
+    case 'changePassword': return {token:'demo'};
+    case 'getPools': return db.pools;
+    case 'joinPool': return {startingPoints:1000};
+    case 'getPoolView': return {matches:db.matches, leaderboard:db.lb, history:db.hist};
+    case 'getMatches': return db.matches;
+    case 'getLeaderboard': return db.lb;
+    case 'getHistory': return db.hist;
+    case 'getCrowd': return db.crowd;
+    case 'placeBet': return {currentPoints:920};
+    default: return {};   // admin mutations, reload odds, etc. — no-op success
+  }
+}
+function mockData(){
+  var now=Date.now(), iso=function(h){ return new Date(now+h*3600000).toISOString(); };
+  var matches=[
+    { fixtureId:'m1', team1:'Brazil', team2:'Argentina', kickoff:iso(3), open:true,
+      moves:{'1x2_101':1,'ou_201':-1},
+      odds:{ m1x2:{home:{oid:101,price:2.10},draw:{oid:102,price:3.30},away:{oid:103,price:3.20}},
+             mou:{line:2.5,over:{oid:201,price:1.90},under:{oid:202,price:1.90}},
+             mah:{line:-0.5,home:{oid:301,price:1.95},away:{oid:302,price:1.85}},
+             corner_ft:{line:9.5,over:{oid:'m1_cf_o',price:1.90},under:{oid:'m1_cf_u',price:1.90}} },
+      myBets:[{marketType:'1x2',outcomeId:101,label:'Brazil',lockedOdds:2.10,stake:100,payout:0,result:''}],
+      customMarkets:[{cid:'cm1',name:'Messi có ghi bàn?',locked:false,result:'',
+        outcomes:[{oid:'cm1_y',label:'Có',price:2.00},{oid:'cm1_n',label:'Không',price:1.70}]}] },
+    { fixtureId:'m2', team1:'Spain', team2:'France', kickoff:iso(10), open:true, myBets:[],
+      odds:{ m1x2:{home:{oid:111,price:2.45},draw:{oid:112,price:3.10},away:{oid:113,price:2.90}},
+             mou:{line:2.5,over:{oid:211,price:1.95},under:{oid:212,price:1.85}} } },
+    { fixtureId:'m3', team1:'Germany', team2:'Netherlands', kickoff:iso(30), open:true, myBets:[],
+      odds:{ m1x2:{home:{oid:121,price:2.20},draw:{oid:122,price:3.25},away:{oid:123,price:3.05}},
+             mah:{line:-0.5,home:{oid:321,price:2.00},away:{oid:322,price:1.80}} } }
+  ];
+  var hist=[
+    { fixtureId:'h1', team1:'Spain', team2:'France', kickoff:iso(10), upcoming:true, net:0, staked:50, settled:false,
+      bets:[{marketType:'ou',outcomeId:211,label:'Tài 2.5',lockedOdds:1.95,stake:50,payout:0,result:''}] },
+    { fixtureId:'h2', team1:'Brazil', team2:'Argentina', kickoff:iso(-20), upcoming:false, score:'2-1', net:110, staked:100, settled:true,
+      bets:[{marketType:'1x2',outcomeId:101,label:'Brazil',lockedOdds:2.10,stake:100,payout:210,result:'Thắng'}] },
+    { fixtureId:'h3', team1:'England', team2:'Wales', kickoff:iso(-28), upcoming:false, score:'0-2', net:-80, staked:80, settled:true,
+      bets:[{marketType:'ah',outcomeId:301,label:'England -0.5',lockedOdds:1.90,stake:80,payout:0,result:'Thua'}] },
+    { fixtureId:'h4', team1:'Portugal', team2:'Italy', kickoff:iso(-2), upcoming:false, score:'1-1', net:0, staked:0, settled:false, bets:[],
+      customMarkets:[{cid:'cm2',name:'Ronaldo có ghi bàn?',locked:false,result:'',
+        outcomes:[{oid:'cm2_y',label:'Có',price:2.20},{oid:'cm2_n',label:'Không',price:1.60}]},
+        {cid:'cm3',name:'Ronaldo hôm nay?',locked:false,result:'r_a,r_c',
+        outcomes:[{oid:'r_a',label:'Ghi bàn',price:2.10},{oid:'r_b',label:'Kiến tạo',price:2.60},{oid:'r_c',label:'Ghi bàn & kiến tạo',price:4.50}]}],
+      stuckMarkets:[{marketType:'corner_ft',outcomes:[{oid:'h4_cf_o',label:'Tài góc 9.5',price:1.90},{oid:'h4_cf_u',label:'Xỉu góc 9.5',price:1.90}]}] }
+  ];
+  var lb=[
+    {nickname:'Minh', points:1240, badges:['prophet','onfire'], streakW:4, pinned:[]},
+    {nickname:'Huy', points:1180, badges:['sharpshooter'], pinned:[]},
+    {nickname:'Lan', points:1050, badges:['ahdog','ximup'], pinned:[]},
+    {nickname:'Nam', points:900, badges:[], pinned:[]},
+    {nickname:'Trang', points:760, badges:['coldstreak'], streakL:3, pinned:[]},
+    {nickname:'Bot Kevin', points:420, badges:['bot'], pinned:[]}
+  ];
+  var pools=[
+    {poolId:'p1', name:'World Cup 2026', members:24, joined:true, requirePassword:false, currentPoints:920},
+    {poolId:'p2', name:'Bạn bè thân', members:8, joined:false, requirePassword:true},
+    {poolId:'p3', name:'Văn phòng', members:15, joined:false, requirePassword:false}
+  ];
+  var crowd={ agg:[
+    {marketType:'1x2',label:'Brazil',n:8,stake:640},{marketType:'1x2',label:'Argentina',n:3,stake:210},
+    {marketType:'ou',label:'Tài 2.5',n:5,stake:300},{marketType:'ou',label:'Xỉu 2.5',n:6,stake:280} ] };
+  return { pools:pools, matches:{ minStake:10, maxStake:200, step:10, currentPoints:920, matches:matches }, hist:hist, lb:lb, crowd:crowd };
 }
 // Khoá nút khi request đang bay -> chống double-submit (vd tạo trùng sảnh). unbusy khôi phục nhãn.
 function busy(id, txt){ var b=el(id); if(b){ if(b._t==null) b._t=b.innerHTML; b.disabled=true; b.innerHTML=txt; } return b; }
@@ -673,6 +750,48 @@ function logout(){ try{ localStorage.removeItem('tok'); }catch(e){}
 function editNick(){
   var n=prompt('Biệt danh mới:', ME.nickname); if(!n) return;
   srun('setNickname', TOKEN, n).then(function(r){ ME.nickname=r.nickname; el('me').textContent=r.nickname; msg('Đã đổi biệt danh ✨', true); }).catch(function(e){ msg(e.message||e); });
+}
+
+// ---- Đổi mật khẩu ----
+function changePwd(){
+  var head='<div class="row" style="margin-bottom:12px"><div style="font-weight:900;font-size:18px">🔑 Đổi mật khẩu</div><button class="iconbtn" onclick="closeModal()">✕</button></div>';
+  function fld(id,lbl){
+    return '<label class="mfield"><span>'+lbl+'</span>'+
+      '<span style="position:relative;display:block">'+
+        '<input id="'+id+'" type="password" class="minput" autocomplete="off" style="padding-right:42px">'+
+        '<button type="button" class="iconbtn" onclick="cpEye(\''+id+'\',this)" title="Hiện/ẩn" '+
+          'style="position:absolute;right:5px;top:50%;transform:translateY(-50%);width:30px;height:30px;font-size:14px">👁</button>'+
+      '</span></label>';
+  }
+  var body=fld('cp-old','Mật khẩu hiện tại')+fld('cp-new','Mật khẩu mới')+
+    '<div id="cp-strength" style="height:5px;border-radius:999px;background:var(--line2);margin-top:8px;overflow:hidden">'+
+      '<div id="cp-sbar" style="height:100%;width:0;border-radius:999px;transition:width .2s,background-color .2s"></div></div>'+
+    '<div id="cp-shint" class="muted" style="font-size:11.5px;margin-top:5px;min-height:14px"></div>'+
+    fld('cp-c','Nhập lại mật khẩu mới')+
+    '<button id="cp-save" class="btn block" style="margin-top:18px" onclick="doChangePwd()">Cập nhật mật khẩu</button>';
+  showModal(head+body);
+  el('cp-new').addEventListener('input', cpStrength);
+}
+function cpEye(id,btn){ var i=el(id); if(!i) return; var show=i.type==='password'; i.type=show?'text':'password'; btn.style.opacity=show?1:.55; }
+function cpStrength(){
+  var v=el('cp-new').value, bar=el('cp-sbar'), hint=el('cp-shint');
+  var s=0; if(v.length>=6)s++; if(v.length>=10)s++; if(/[0-9]/.test(v)&&/[a-zA-Z]/.test(v))s++; if(/[^a-zA-Z0-9]/.test(v))s++;
+  if(!v){ bar.style.width='0'; hint.textContent=''; return; }
+  var pct=[18,45,72,100][Math.min(s,3)], col=['var(--lose)','var(--gold)','var(--win)','var(--win)'][Math.min(s,3)];
+  var lbl=['Yếu','Khá','Mạnh','Mạnh'][Math.min(s,3)];
+  bar.style.width=pct+'%'; bar.style.background=col; hint.textContent='Độ mạnh: '+lbl;
+}
+function doChangePwd(){
+  var oldP=el('cp-old').value, newP=el('cp-new').value, cP=el('cp-c').value;
+  if(!oldP||!newP||!cP){ msg('Điền đủ 3 ô mật khẩu'); return; }
+  if(newP.length<6){ msg('Mật khẩu mới cần ít nhất 6 ký tự'); return; }
+  if(newP===oldP){ msg('Mật khẩu mới phải khác mật khẩu cũ'); return; }
+  if(newP!==cP){ msg('Hai ô mật khẩu mới không khớp'); return; }
+  var b=busy('cp-save','<span class="spin sm"></span> Đang lưu…');
+  srun('changePassword', TOKEN, oldP, newP).then(function(r){
+    if(r && r.token){ TOKEN=r.token; try{ localStorage.setItem('tok', r.token); }catch(e){} }
+    closeModal(); msg('Đã đổi mật khẩu 🔑', true);
+  }).catch(function(e){ unbusy(b); msg(e.message||e); });
 }
 
 // ---- Tabs ----
@@ -1066,26 +1185,47 @@ function doSettleStd(fid,mt,win){
   srun('adminSettleStdMarket', TOKEN, CURPOOL, fid, mt, win).then(function(){ msg(win==='VOID'?'Đã hoàn kèo — trả điểm mọi người ✓':'Đã chấm kèo ✓', true); loadMatches(true); try{ loadHist(true); }catch(e){} }).catch(function(e){ msg(e.message||e); });
 }
 // Một dòng trong hàng đợi: header + panel chọn cửa thắng (ẩn, bấm "Chấm/Sửa" mới mở).
+// Danh sách oid các cửa thắng từ cm.result ("0,2" -> ['0','2']). VOID/NONE/rỗng -> [].
+function winnerOids(cm){
+  var r=cm&&cm.result;
+  if(r==null||r===''||r==='VOID'||r==='NONE') return [];
+  return String(r).split(',');
+}
 function settleItem(it){
   var m=it.m, cm=it.cm, fid=m.fixtureId, cid=cm.cid, key=fid+'_'+cid;
   var mn=esc(m.team1)+' vs '+esc(m.team2);
   var settled=(cm.result!=null&&cm.result!=='');
-  var voided=(cm.result==='VOID');
-  var winLbl=voided?'Đã hoàn':(((cm.outcomes||[]).filter(function(o){return String(o.oid)===String(cm.result);})[0]||{}).label||'?');
+  var voided=(cm.result==='VOID'), none=(cm.result==='NONE');
+  var wins=winnerOids(cm), winSet={}; wins.forEach(function(o){ winSet[String(o)]=1; });
+  var winLbls=wins.map(function(o){ return (((cm.outcomes||[]).filter(function(x){return String(x.oid)===String(o);})[0])||{}).label||'?'; });
+  var resLbl=voided?'Đã hoàn':(none?'Không cửa nào thắng':(winLbls.join(' + ')||'?'));
+  var resIcon=voided?'↩︎ ':(none?'∅ ':'🏆 ');
   var sub=settled
-    ? mn+' · <span class="sq-res '+(voided?'void':'win')+'">'+(voided?'↩︎ ':'🏆 ')+esc(winLbl)+'</span>'
+    ? mn+' · <span class="sq-res '+((voided||none)?'void':'win')+'">'+resIcon+esc(resLbl)+'</span>'
     : mn;
   var actions=settled
     ? '<div class="sq-actions"><button class="sq-btn ghost" onclick="toggleSettlePanel(\''+key+'\')">↻ Sửa ▾</button><button class="sq-btn lock" onclick="finalizeMarket(\''+fid+'\',\''+cid+'\')">🔒 Chốt</button></div>'
     : '<button class="sq-btn" onclick="toggleSettlePanel(\''+key+'\')">Chấm ▾</button>';
-  var opts=(cm.outcomes||[]).map(function(oc){ var cur=(String(cm.result)===String(oc.oid)); return '<button class="sq-opt'+(cur?' cur':'')+'" onclick="doSettleMarket(\''+fid+'\',\''+cid+'\',\''+oc.oid+'\')">'+esc(oc.label)+' <span class="sq-oo">@ '+oc.price+'</span>'+(cur?'<span class="sq-cur">đang chọn</span>':'')+'</button>'; }).join('');
-  var refundCur=(cm.result==='VOID');
+  var opts=(cm.outcomes||[]).map(function(oc){ var cur=!!winSet[String(oc.oid)]; return '<button class="sq-opt'+(cur?' cur':'')+'" onclick="toggleWin(\''+fid+'\',\''+cid+'\',\''+oc.oid+'\')">'+esc(oc.label)+' <span class="sq-oo">@ '+oc.price+'</span>'+(cur?'<span class="sq-cur">✓ thắng</span>':'')+'</button>'; }).join('');
+  var refundCur=voided;
   var panel='<div class="sq-panel" id="sqp_'+key+'" style="display:none">'+
-    '<div class="sq-hint">'+(settled?'Chọn lại cửa thắng — điểm tính lại theo kết quả mới.':'Chọn cửa THẮNG. Các cửa còn lại thua. Điểm áp ngay, sửa lại được.')+'</div>'+
+    '<div class="sq-hint">Bấm chọn <b>mọi</b> cửa THẮNG — chọn được nhiều cửa (vd vừa “ghi bàn” vừa “ghi bàn &amp; kiến tạo”). Bấm lại để bỏ. Cửa không chọn = thua. Điểm áp ngay, sửa lại được.</div>'+
     '<div class="sq-opts">'+opts+'</div>'+
     '<button class="sq-refund'+(refundCur?' cur':'')+'" onclick="doSettleMarket(\''+fid+'\',\''+cid+'\',\'VOID\')">↩︎ Hoàn cả kèo — trả điểm mọi người'+(refundCur?' · đang chọn':'')+'</button>'+
     '</div>';
   return '<div class="sq-item'+(settled?' done':'')+'"><div class="sq-row"><div class="sq-info"><div class="sq-name">🎯 '+esc(cm.name)+'</div><div class="sq-match">'+sub+'</div></div>'+actions+'</div>'+panel+'</div>';
+}
+// Bật/tắt 1 cửa thắng rồi chấm lại ngay với TẬP cửa thắng mới (chọn nhiều cửa được).
+function toggleWin(fid,cid,oid){
+  var m=(HIST||[]).filter(function(x){return x.fixtureId===fid;})[0];
+  var cm=m?((m.customMarkets||[]).filter(function(c){return c.cid===cid;})[0]):null;
+  if(!cm){ msg('Không tìm thấy kèo'); return; }
+  var wins=winnerOids(cm), i=wins.indexOf(String(oid));
+  if(i>=0) wins.splice(i,1); else wins.push(String(oid));
+  srun('adminSettleMarket', TOKEN, CURPOOL, fid, cid, wins).then(function(){
+    msg(wins.length?'Đã chấm kèo ✓':'Đã bỏ hết cửa thắng — mọi cửa thua ✓', true);
+    loadMatches(true); try{ loadHist(true); }catch(e){}
+  }).catch(function(e){ msg(e.message||e); });
 }
 function toggleSettlePanel(key){ var p=el('sqp_'+key); if(!p) return; p.style.display=(!p.style.display||p.style.display==='none')?'block':'none'; }
 function renderHist(){
@@ -1601,7 +1741,8 @@ function cycleTheme(){
 (function(){ var t='neon'; try{ t=localStorage.getItem('prophet_theme')||'neon'; }catch(e){} setTheme(t); })();
 
 authTab('login');
-(function(){ var t; try{ t=localStorage.getItem('tok'); }catch(e){}
+(function(){ if(MOCK){ srun('resume','demo').then(onAuthed); return; } // demo preview -> skip login
+  var t; try{ t=localStorage.getItem('tok'); }catch(e){}
   if(t) srun('resume', t).then(onAuthed).catch(function(){ try{ localStorage.removeItem('tok'); }catch(e){} });
 })();
 

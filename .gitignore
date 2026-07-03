@@ -17,3 +17,5 @@ node_modules/
 .remember/
 # .clasp.json: scriptId GAS (cấu hình nội bộ)
 .clasp.json
+.playwright-mcp/
+.playwright-mcp/**

@@ -45,6 +45,15 @@ const resumed = await auth.resume(env, relog.token);
 assert.strictEqual(resumed.username, 'alice', 'resume returns alice');
 alice.token = relog.token; // login rotates the token — the register-time one is now invalid
 await assert.rejects(auth.login(env, 'alice', 'wrong'), /Sai mật khẩu/, 'bad password rejected');
+
+// changePassword: wrong old rejected; correct old rotates token + swaps password
+await assert.rejects(auth.changePassword(env, alice.token, 'nope', 'pw34'), /hiện tại không đúng/, 'wrong old password rejected');
+const cp = await auth.changePassword(env, alice.token, 'pw12', 'pw34');
+assert.ok(cp.token && cp.token !== alice.token, 'changePassword rotates token');
+await assert.rejects(auth.login(env, 'alice', 'pw12'), /Sai mật khẩu/, 'old password no longer works');
+const relog2 = await auth.login(env, 'alice', 'pw34');
+assert.ok(relog2.token, 'new password works');
+alice.token = relog2.token; // login rotated token again -> downstream tests reuse the current one
 await assert.rejects(auth.register(env, 'ALICE', 'pw12', 'Alice2'), /đã tồn tại/, 'dup username (UNIQUE, case-insensitive) rejected');
 
 // admin creates + opens a pool
@@ -86,4 +95,31 @@ await admin.adminSettleStdMarket(env, boss.token, poolId, 'f1', '1x2', 103);
 const reBal = Number(raw.prepare(`SELECT currentPoints c FROM Memberships WHERE user='alice'`).get().c);
 assert.strictEqual(reBal, 240, 're-settle uses delta (no double-credit) -> back to 240');
 
-console.log('OK — Worker DB flows: auth, admin gate, join, bet, overspend rollback, leaderboard, delta re-settle.');
+// ---- Custom market MULTI-WINNER settle (overlapping props: A/B/C, A & C both win) ----
+const { cid } = await admin.adminAddMarket(env, boss.token, poolId, 'f1', 'Ronaldo hôm nay?',
+  [{ label:'Ghi bàn', price:2.0 }, { label:'Kiến tạo', price:2.0 }, { label:'Ghi bàn & kiến tạo', price:2.0 }]);
+const mt = 'c_' + cid;
+// 3 bets 100@2.0 on oids 0/1/2 (insert directly — isolates settle math from stake/cover rules)
+[['bA','0'],['bB','1'],['bC','2']].forEach(([id, oid]) =>
+  raw.prepare(`INSERT INTO Bets(betId,poolId,user,fixtureId,marketType,outcomeId,stake,lockedOdds,placedAt) VALUES(?,?,?,?,?,?,?,?,?)`)
+     .run(id, poolId, 'alice', 'f1', mt, oid, '100', '2.0', new Date().toISOString()));
+const base = Number(raw.prepare(`SELECT currentPoints c FROM Memberships WHERE user='alice'`).get().c);
+
+// settle winners [0,2] -> A & C win (+200 each), B loses
+await admin.adminSettleMarket(env, boss.token, poolId, 'f1', cid, ['0', '2']);
+assert.strictEqual(raw.prepare(`SELECT result r FROM CustomMarkets WHERE cid=?`).get(cid).r, '0,2', 'result stores winner set "0,2"');
+assert.strictEqual(raw.prepare(`SELECT result r FROM Bets WHERE betId='bA'`).get().r, 'WIN', 'A wins');
+assert.strictEqual(raw.prepare(`SELECT result r FROM Bets WHERE betId='bB'`).get().r, 'LOSS', 'B loses');
+assert.strictEqual(raw.prepare(`SELECT result r FROM Bets WHERE betId='bC'`).get().r, 'WIN', 'C wins');
+assert.strictEqual(Number(raw.prepare(`SELECT currentPoints c FROM Memberships WHERE user='alice'`).get().c), base + 400, 'A+C paid 200 each -> +400');
+
+// re-settle to [2] only (delta): A reverses -200, C stays
+await admin.adminSettleMarket(env, boss.token, poolId, 'f1', cid, ['2']);
+assert.strictEqual(Number(raw.prepare(`SELECT currentPoints c FROM Memberships WHERE user='alice'`).get().c), base + 200, 're-settle drops A -> +200');
+
+// deselect all -> NONE (settled, everyone loses); C reverses -200
+await admin.adminSettleMarket(env, boss.token, poolId, 'f1', cid, []);
+assert.strictEqual(raw.prepare(`SELECT result r FROM CustomMarkets WHERE cid=?`).get(cid).r, 'NONE', 'empty winners -> NONE (still settled)');
+assert.strictEqual(Number(raw.prepare(`SELECT currentPoints c FROM Memberships WHERE user='alice'`).get().c), base, 'all-lose -> back to base');
+
+console.log('OK — Worker DB flows: auth, admin gate, join, bet, overspend rollback, leaderboard, delta re-settle, multi-winner custom settle.');

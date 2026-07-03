@@ -82,14 +82,17 @@ export async function adminDeleteMarket(env, token, poolId, fixtureId, cid){
   return { ok: true };
 }
 
-// Chấm/chấm lại kèo custom (delta payout -> không double-credit).
-export async function adminSettleMarket(env, token, poolId, fixtureId, cid, winningOid){
+// Chấm/chấm lại kèo custom (delta payout -> không double-credit). winningOids: mảng/chuỗi các cửa
+// thắng (nhiều cửa được), 'VOID' để hoàn, hoặc rỗng = 'NONE' (mọi cửa thua nhưng vẫn là đã chấm).
+export async function adminSettleMarket(env, token, poolId, fixtureId, cid, winningOids){
   const u = await requireAdmin(env, token);
   const cm = (await readAll(env, 'CustomMarkets')).filter(c => c.poolId === poolId && c.fixtureId === fixtureId && c.cid === cid)[0];
   if (!cm) throw new Error('Kèo không tồn tại');
   if (String(cm.locked).toUpperCase() === 'Y') throw new Error('Kèo đã chốt hoàn toàn, không chấm lại được');
-  await settleBets_(env, poolId, fixtureId, 'c_' + cid, winningOid);
-  await updateRow(env, 'CustomMarkets', { poolId, fixtureId, cid }, { result: (String(winningOid) === 'VOID') ? 'VOID' : String(winningOid), settledAt: new Date().toISOString() });
+  const w = winnerList(winningOids);
+  await settleBets_(env, poolId, fixtureId, 'c_' + cid, winningOids);
+  const result = w.void ? 'VOID' : (w.arr.length ? w.arr.join(',') : 'NONE');
+  await updateRow(env, 'CustomMarkets', { poolId, fixtureId, cid }, { result, settledAt: new Date().toISOString() });
   await cacheBust(env, (await C.mtKeys(env, poolId, u)).concat(['lb_' + poolId]));
   return { ok: true };
 }
@@ -114,14 +117,25 @@ export async function adminSettleStdMarket(env, token, poolId, fixtureId, market
   return { ok: true };
 }
 
+// Normalize the winning arg into a set of oids. Accepts: 'VOID', a single oid, an array of oids,
+// or a comma-joined string. Custom markets can have MANY winning cửa (overlapping props, vd
+// Ronaldo "ghi bàn" + "ghi bàn & kiến tạo" cùng ăn); std markets pass a single oid — same path.
+function winnerList(winning){
+  if (String(winning) === 'VOID') return { void: true, set: new Set(), arr: [] };
+  const arr = (Array.isArray(winning) ? winning : String(winning).split(','))
+    .map(x => String(x).trim()).filter(x => x !== '' && x !== 'NONE');
+  return { void: false, set: new Set(arr), arr };
+}
+
 // Shared delta-resettle for custom + std manual settle. Returns #bets touched.
-async function settleBets_(env, poolId, fixtureId, marketType, winningOid){
-  const isVoid = (String(winningOid) === 'VOID');
+// A bet WINS if its outcomeId is in the winning set (a set, not a single cửa).
+async function settleBets_(env, poolId, fixtureId, marketType, winning){
+  const w = winnerList(winning);
   const bets = (await readAll(env, 'Bets')).filter(b => b.poolId === poolId && b.fixtureId === fixtureId && b.marketType === marketType);
   for (const b of bets) {
     const stake = Number(b.stake), odds = Number(b.lockedOdds); let payout, res;
-    if (isVoid) { res = 'CANCELLED'; payout = stake; }
-    else if (String(b.outcomeId) === String(winningOid)) { res = 'WIN'; payout = stake * odds; }
+    if (w.void) { res = 'CANCELLED'; payout = stake; }
+    else if (w.set.has(String(b.outcomeId))) { res = 'WIN'; payout = stake * odds; }
     else { res = 'LOSS'; payout = 0; }
     const oldPayout = b.result ? Number(b.payout) : 0;
     await updateRow(env, 'Bets', { betId: b.betId }, { result: res, payout, settledAt: new Date().toISOString() });
