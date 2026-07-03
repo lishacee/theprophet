@@ -1,0 +1,19 @@
+# === BÍ MẬT — tuyệt đối không commit ===
+# api-key.txt: key OddsPapi
+api-key.txt
+*.key
+*.pem
+# .dev.vars: wrangler local secrets
+.dev.vars
+# prophet-export.json / seed.sql: dump DB chứa passHash/salt/token của user
+prophet-export.json
+seed.sql
+
+# === Local / dev ===
+node_modules/**
+node_modules/
+# .wrangler: state D1 cục bộ của wrangler dev
+.wrangler/
+.remember/
+# .clasp.json: scriptId GAS (cấu hình nội bộ)
+.clasp.json

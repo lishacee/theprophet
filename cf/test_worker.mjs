@@ -1,0 +1,89 @@
+// End-to-end smoke test of the Worker DB flows against real SQLite (node:sqlite), via a
+// thin D1-compatible shim. Exercises auth + admin + pools + bets (incl. the atomic overspend
+// guard and rollback) + leaderboard — the paths the pure-logic tests can't reach.
+// Run: node cf/test_worker.mjs
+import assert from 'node:assert';
+import { DatabaseSync } from 'node:sqlite';
+import { readFileSync } from 'node:fs';
+import * as auth from './src/auth.js';
+import * as pools from './src/pools.js';
+import * as social from './src/social.js';
+import * as admin from './src/admin.js';
+
+// D1 shim: prepare().bind().first()/.all()/.run() over node:sqlite.
+function d1(db){
+  return { prepare(sql){ return {
+    _p: [],
+    bind(...a){ this._p = a; return this; },
+    async first(){ const r = db.prepare(sql).get(...this._p); return r === undefined ? null : r; },
+    async all(){ return { results: db.prepare(sql).all(...this._p) }; },
+    async run(){ const r = db.prepare(sql).run(...this._p); return { meta: { changes: r.changes } }; },
+  }; } };
+}
+const raw = new DatabaseSync(':memory:');
+raw.exec(readFileSync(new URL('./schema.sql', import.meta.url), 'utf8'));
+const env = { DB: d1(raw), ADMINS: 'boss' };
+
+// seed a match + odds directly (avoids the OddsPapi network path)
+function seedMatchOdds(poolId){
+  const kickoff = new Date(Date.now() + 6 * 3600000).toISOString(); // 6h out -> open
+  raw.prepare(`INSERT INTO Matches(poolId,fixtureId,tournamentId,team1,team2,kickoff,included) VALUES(?,?,?,?,?,?,?)`)
+     .run(poolId, 'f1', '16', 'Spain', 'Brazil', kickoff, 'Y');
+  const odds = JSON.stringify({ m1x2: { marketId: 101, home: { oid: 101, price: 2.0 }, draw: { oid: 102, price: 3.0 }, away: { oid: 103, price: 4.0 } } });
+  raw.prepare(`INSERT INTO Odds(bookmaker,fixtureId,oddsJson,updatedAt,prevOddsJson,lastFetchAt) VALUES(?,?,?,?,?,?)`)
+     .run('pinnacle', 'f1', odds, new Date().toISOString(), '', new Date().toISOString());
+}
+
+const boss = await auth.register(env, 'boss', 'pw12', 'Boss');
+assert.ok(boss.isAdmin, 'boss is admin (ADMINS=boss)');
+const alice = await auth.register(env, 'alice', 'pw12', 'Alice');
+assert.strictEqual(alice.isAdmin, false, 'alice not admin');
+
+// login + resume round-trip
+const relog = await auth.login(env, 'alice', 'pw12');
+const resumed = await auth.resume(env, relog.token);
+assert.strictEqual(resumed.username, 'alice', 'resume returns alice');
+alice.token = relog.token; // login rotates the token — the register-time one is now invalid
+await assert.rejects(auth.login(env, 'alice', 'wrong'), /Sai mật khẩu/, 'bad password rejected');
+await assert.rejects(auth.register(env, 'ALICE', 'pw12', 'Alice2'), /đã tồn tại/, 'dup username (UNIQUE, case-insensitive) rejected');
+
+// admin creates + opens a pool
+const { poolId } = await admin.adminCreatePool(env, boss.token, { name: 'WC2026' });
+await admin.adminSetStatus(env, boss.token, poolId, 'open');
+seedMatchOdds(poolId);
+await assert.rejects(admin.adminCreatePool(env, alice.token, { name: 'x' }), /quyền admin/, 'non-admin blocked');
+
+// alice joins: 1 future match -> start = round(1*400*1.1) = 440
+const j = await pools.joinPool(env, alice.token, poolId, '');
+assert.strictEqual(j.startingPoints, 440, 'starting points 440');
+
+// place a valid bet: 1x2 home, stake 200 (min = 400/2)
+const b1 = await pools.placeBet(env, alice.token, poolId, 'f1', '1x2', 101, 200);
+assert.strictEqual(b1.currentPoints, 240, 'balance 440-200=240');
+assert.strictEqual(b1.lockedOdds, 2.0, 'locked home odds');
+
+// overspend: stake 400 (<= maxStake, within cover rules) but balance only 240 -> reject + rollback
+await assert.rejects(pools.placeBet(env, alice.token, poolId, 'f1', '1x2', 103, 400), /Không đủ điểm/, 'overspend rejected');
+const betCount = raw.prepare(`SELECT count(*) n FROM Bets WHERE user='alice'`).get().n;
+assert.strictEqual(betCount, 1, 'failed bet rolled back (still 1 bet)');
+const bal = Number(raw.prepare(`SELECT currentPoints c FROM Memberships WHERE user='alice'`).get().c);
+assert.strictEqual(bal, 240, 'balance unchanged after rolled-back bet');
+
+// stake not a multiple of minStake
+await assert.rejects(pools.placeBet(env, alice.token, poolId, 'f1', 'ou', 1, 150), /bội số/, 'bad stake step rejected');
+
+// leaderboard reflects alice
+const lb = await social.getLeaderboard(env, alice.token, poolId);
+assert.strictEqual(lb.length, 1, 'one member');
+assert.strictEqual(lb[0].points, 240, 'lb points 240');
+
+// admin manual-settle the 1x2 market: home wins -> alice WIN, payout 200*2=400
+await admin.adminSettleStdMarket(env, boss.token, poolId, 'f1', '1x2', 101);
+const afterBal = Number(raw.prepare(`SELECT currentPoints c FROM Memberships WHERE user='alice'`).get().c);
+assert.strictEqual(afterBal, 240 + 400, 'settle credited payout 400 -> 640');
+// re-settle to away (delta): reverse old 400, alice now LOSS -> 640-400=240
+await admin.adminSettleStdMarket(env, boss.token, poolId, 'f1', '1x2', 103);
+const reBal = Number(raw.prepare(`SELECT currentPoints c FROM Memberships WHERE user='alice'`).get().c);
+assert.strictEqual(reBal, 240, 're-settle uses delta (no double-credit) -> back to 240');
+
+console.log('OK — Worker DB flows: auth, admin gate, join, bet, overspend rollback, leaderboard, delta re-settle.');
