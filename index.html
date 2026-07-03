@@ -607,7 +607,6 @@ function netStart(){ if(NET++===0){ var b=el('netbar'); if(b) b.classList.add('o
 function netEnd(){ if(--NET<=0){ NET=0; var b=el('netbar'); if(b) b.classList.remove('on'); } }
 // Cloudflare Worker API base. Set when hosting on GitHub Pages; leave '' to keep using Apps Script.
 var WORKER_URL = '';
-  //https://the-prophet.lishacee.workers.dev
 // Single server-call funnel. WORKER_URL set -> POST {fn,args} to the Worker (first-party fetch,
 // so Safari keeps the session); else fall back to google.script.run (legacy GAS deploy).
 // text/plain body = a "simple" CORS request -> no preflight; the Worker still parses it as JSON.
