@@ -1,0 +1,37 @@
+name = "the-prophet"
+main = "src/index.js"
+compatibility_date = "2026-01-01"
+
+# D1 database binding — fill database_id after `wrangler d1 create prophet`
+[[d1_databases]]
+binding = "DB"
+database_name = "prophet"
+database_id = "cdf324df-8338-4fe2-bb25-fe024f0ac8e8"
+
+# Settlement/odds cron — every 5 min (free tier allows minute-level, unlike Vercel Hobby).
+# One Worker handles all schedules; scheduled() branches on cron expression.
+[triggers]
+crons = ["*/5 * * * *", "*/15 * * * *", "0 */6 * * *"]
+
+# Secrets (set with `wrangler secret put NAME`, NOT here):
+#   ODDSPAPI_KEY, ODDSPAPI_KEY_BACKUP, ADMINS (comma-separated usernames),
+#   SOFASCORE_PROXY (your existing CF Worker proxy), SCRAPERAPI_KEY
+# Non-secret var:
+[vars]
+ALLOW_ORIGIN = "https://lishacee.github.io"
+ADMINS = "thang"
+
+[observability]
+enabled = false
+head_sampling_rate = 1
+
+[observability.logs]
+enabled = true
+head_sampling_rate = 1
+persist = true
+invocation_logs = true
+
+[observability.traces]
+enabled = false
+persist = true
+head_sampling_rate = 1
