@@ -605,19 +605,16 @@ function teamFlag(name){
 var NET=0;
 function netStart(){ if(NET++===0){ var b=el('netbar'); if(b) b.classList.add('on'); } }
 function netEnd(){ if(--NET<=0){ NET=0; var b=el('netbar'); if(b) b.classList.remove('on'); } }
-// Cloudflare Worker API base. Set when hosting on GitHub Pages; leave '' to keep using Apps Script.
+// Cloudflare Worker API base. First-party fetch, so Safari keeps the session.
 var WORKER_URL = 'https://the-prophet.lishace.workers.dev';
-// Single server-call funnel. WORKER_URL set -> POST {fn,args} to the Worker (first-party fetch,
-// so Safari keeps the session); else fall back to google.script.run (legacy GAS deploy).
-// text/plain body = a "simple" CORS request -> no preflight; the Worker still parses it as JSON.
+// Single server-call funnel: POST {fn,args} to the Worker. text/plain body = a "simple"
+// CORS request -> no preflight; the Worker still parses it as JSON.
 function srun(fn){
   var a=[].slice.call(arguments,1); netStart();
-  var p = WORKER_URL
-    ? fetch(WORKER_URL, { method:'POST', headers:{'Content-Type':'text/plain'}, body:JSON.stringify({fn:fn, args:a}) })
-        .then(function(r){ return r.json(); })
-        .then(function(j){ if(j && j.ok) return j.data; throw new Error((j && j.error) || 'Lỗi máy chủ'); })
-    : new Promise(function(res,rej){ var r=google.script.run.withSuccessHandler(res).withFailureHandler(rej); r[fn].apply(r,a); });
-  return p.then(function(v){ netEnd(); return v; }, function(e){ netEnd(); throw e; });
+  return fetch(WORKER_URL, { method:'POST', headers:{'Content-Type':'text/plain'}, body:JSON.stringify({fn:fn, args:a}) })
+    .then(function(r){ return r.json(); })
+    .then(function(j){ netEnd(); if(j && j.ok) return j.data; throw new Error((j && j.error) || 'Lỗi máy chủ'); },
+          function(e){ netEnd(); throw e; });
 }
 // Khoá nút khi request đang bay -> chống double-submit (vd tạo trùng sảnh). unbusy khôi phục nhãn.
 function busy(id, txt){ var b=el(id); if(b){ if(b._t==null) b._t=b.innerHTML; b.disabled=true; b.innerHTML=txt; } return b; }
@@ -1608,149 +1605,6 @@ authTab('login');
   if(t) srun('resume', t).then(onAuthed).catch(function(){ try{ localStorage.removeItem('tok'); }catch(e){} });
 })();
 
-/* ===== DEV MOCK SHIM — chỉ chạy khi mở ngoài Apps Script (không có google.script.run). Vô hại khi deploy. ===== */
-(function(){
-  if(typeof google!=='undefined' && google.script && google.script.run) return;
-  var now=Date.now(), H=3600000, D=86400000;
-  var users={ demo:{nickname:'Bạn Demo', isAdmin:true} };
-  var pool={poolId:'p1', name:'World Cup Hội Bạn 🌍', status:'open', members:8, maxStake:200, pointsPerMatch:100, startMultiplier:10, noshowPenalty:50, tournamentIds:'16,17', dateFrom:'2026-06-01', dateTo:'2026-07-15', bookmaker:'bet365', matchCount:6, currentPoints:1240, extraMarkets:{}};
-  // sảnh B — ví dụ: đã bật sẵn 2 kèo góc mở rộng để demo cho mọi trận trong sảnh này (tỷ lệ do API bookmaker trả về, không nhập tay)
-  var poolB={poolId:'p2', name:'Cúp C1 Văn Phòng ⚽', status:'draft', members:5, maxStake:100, pointsPerMatch:50, startMultiplier:8, tournamentIds:'', dateFrom:'', dateTo:'', bookmaker:'bet365', matchCount:0, requirePassword:true, joinPassword:'1234',
-    extraMarkets:{ corner_1h:{enabled:true}, corner_ft:{enabled:true} } };
-  function poolMock(pid){ return pid==='p2'?poolB:pool; }
-  function mk(id,a,b,off,odds,bets,moves){ return {fixtureId:id,team1:a,team2:b,kickoff:now+off,open:off>0,odds:odds,moves:moves||{},myBets:bets||[],customMarkets:[]}; }
-  var fullOdds={ m1x2:{home:{oid:1,price:1.25},draw:{oid:2,price:6.0},away:{oid:3,price:11.0}}, mou:{line:3.5,over:{oid:4,price:1.90},under:{oid:5,price:1.90}}, mah:{line:-2.5,home:{oid:6,price:1.95},away:{oid:7,price:1.85}} };
-  var matches=[ mk('f1','Brazil','Haiti', 2*H, fullOdds, [{marketType:'ou',oid:4,stake:50,lockedOdds:1.90}], {'1x2_1':-1,'1x2_3':1,'ou_4':1}),
-                mk('f2','France','Norway', 1*D, fullOdds, []),
-                mk('f3','Argentina','Chile', 2*D, {m1x2:{home:{oid:1,price:1.55},draw:{oid:2,price:3.8},away:{oid:3,price:6.2}}}, []),
-                mk('f4','Japan','Qatar', 3*D, null, []) ];
-  // tỷ lệ góc lấy từ API bookmaker — mỗi trận có mốc/giá riêng, giống cách m1x2/mou/mah đã có sẵn cho từng trận
-  var CORNER_FEED={
-    f1:{ corner_1h:{line:4.5, over:1.92, under:1.88}, corner_ft:{line:10.5, over:1.87, under:1.93} },
-    f2:{ corner_1h:{line:4.0, over:1.95, under:1.85}, corner_ft:{line:9.5,  over:1.90, under:1.90} },
-    f3:{ corner_1h:{line:5.0, over:1.90, under:1.90}, corner_ft:{line:10.0, over:1.85, under:1.95} },
-    f4:{ corner_1h:{line:3.5, over:2.00, under:1.80}, corner_ft:{line:8.5,  over:1.92, under:1.88} }
-  };
-  matches.forEach(function(m){ if(m.odds) m.odds._cornerFeed=CORNER_FEED[m.fixtureId]; });
-  // ví dụ: admin đã thêm 1 kèo riêng cho trận f1 (không liên quan pool nào, gắn thẳng vào trận)
-  matches[0].customMarkets=[{cid:'seed1', name:'Neymar có ghi bàn không?', outcomes:[{oid:'seed1_o1',label:'Có',price:2.10},{oid:'seed1_o2',label:'Không',price:1.65}]}];
-  // gắn odds kèo mở rộng (đã bật ở cấp sảnh) vào từng trận — tỷ lệ lấy từ feed bookmaker của chính trận đó, theo đúng sảnh đang xem
-  function withExtraMarkets(pid){
-    var pc=poolMock(pid), ems=(pc&&pc.extraMarkets)||{};
-    return matches.map(function(m){
-      var m2={}; for(var k in m) m2[k]=m[k]; m2.odds=m.odds?Object.assign({},m.odds):m.odds;
-      if(m2.odds){
-        var feed=m2.odds._cornerFeed||{};
-        EXTRA_MKT_LIB.forEach(function(item){
-          var cfg=ems[item.key], f=feed[item.key];
-          if(cfg && cfg.enabled && f) m2.odds[item.key]={ line:f.line, over:{oid:m.fixtureId+'_'+item.key+'_over',price:f.over}, under:{oid:m.fixtureId+'_'+item.key+'_under',price:f.under} };
-        });
-      }
-      return m2;
-    });
-  }
-  var hist=[ {fixtureId:'g1',team1:'Argentina',team2:'Mexico',kickoff:now-35*60000,upcoming:false,settled:false,net:0,staked:60,penalized:false,bets:[{marketType:'c_liveA',label:'Có',stake:60,lockedOdds:3.20,result:null}],customMarkets:[{cid:'liveA',name:'Có phạt đền trong trận không?',outcomes:[{oid:'liveA_o1',label:'Có',price:3.20},{oid:'liveA_o2',label:'Không',price:1.30}]},{cid:'liveB',name:'Messi ghi bàn hiệp 1?',outcomes:[{oid:'liveB_o1',label:'Có',price:2.40},{oid:'liveB_o2',label:'Không',price:1.55}],result:'liveB_o2'}]},
-             {fixtureId:'h1',team1:'Spain',team2:'Italy',kickoff:now-2*D,score:'2-1',upcoming:false,settled:true,net:95,staked:100,penalized:false,bets:[{marketType:'1x2',label:'Spain',stake:100,lockedOdds:1.95,result:'Thắng',payout:195}]},
-             {fixtureId:'h2',team1:'Germany',team2:'Wales',kickoff:now-1*D,score:'0-0',upcoming:false,settled:true,net:60,staked:40,penalized:false,bets:[{marketType:'ou',label:'Tài 2.5',stake:40,lockedOdds:2.5,result:'Tài thắng',payout:100}]},
-             {fixtureId:'h3',team1:'Portugal',team2:'Serbia',kickoff:now-3*D,score:'1-3',upcoming:false,settled:true,net:-80,staked:80,penalized:false,bets:[{marketType:'ah',label:'Portugal -1.5',stake:80,lockedOdds:1.9,result:'Thua',payout:0}]},
-             {fixtureId:'f1',team1:'Brazil',team2:'Haiti',kickoff:now+2*H,upcoming:true,settled:false,net:0,staked:50,penalized:false,bets:[{marketType:'ou',label:'Tài 3.5',stake:50,lockedOdds:1.9,result:null}]} ];
-  var lb=[{nickname:'Cao Thủ Kèo',points:4200,start:1000,badges:['lonewolf','ximup','prophet','onfire'],pinned:[]},
-          {nickname:'Vua Tài Xỉu',points:1880,start:1000,badges:['oudog','sharpshooter','underdog'],pinned:['underdog']},
-          {nickname:'Bạn Demo',points:1240,start:1000,badges:['ahdog','contrarian','onfire'],pinned:[]},
-          {nickname:'Tèo',points:1120,start:1000,badges:[],pinned:[]},
-          {nickname:'Lan Hương',points:980,start:1000,badges:['coldstreak'],pinned:[]},
-          {nickname:'Minh Khôi',points:120,start:1000,badges:['bot','coldstreak'],pinned:[]}];
-  function tok(){ return 'demo-token'; }
-  var API={
-    register:function(u,p,n){ return {token:tok(),nickname:n||'Người mới',isAdmin:false}; },
-    login:function(u,p){ return {token:tok(),nickname:'Bạn Demo',isAdmin:true}; },
-    resume:function(t){ throw new Error('no session'); },
-    setNickname:function(t,n){ return {nickname:n}; },
-    getPools:function(){ return [{poolId:'p1',name:pool.name,members:8,joined:true,currentPoints:1240},{poolId:'p2',name:'Cúp C1 Văn Phòng ⚽',members:5,joined:false,currentPoints:0,requirePassword:true}]; },
-    joinPool:function(t,id,pwd){ if(id==='p2' && pwd!=='1234') throw new Error('Mật khẩu không đúng'); return {startingPoints:1000}; },
-    getMatches:function(t,pid){ return {minStake:50,maxStake:200,step:10,currentPoints:1240,matches:withExtraMarkets(pid)}; },
-    getPoolView:function(t,pid){ return {matches:{minStake:50,maxStake:200,step:10,currentPoints:1240,matches:withExtraMarkets(pid)}, leaderboard:lb, history:hist}; },
-    placeBet:function(t,pid,fid,mt,oid,stake){ return {currentPoints:1240-stake}; },
-    adminRefreshOdds:function(){ return {}; },
-    adminAddMarket:function(t,pid,fid,name,outs){
-      var m=matches.filter(function(x){return x.fixtureId===fid;})[0]; if(!m) throw new Error('Không tìm thấy trận');
-      m.customMarkets=m.customMarkets||[];
-      var cid='c'+Date.now().toString(36);
-      m.customMarkets.push({cid:cid, name:name, outcomes:(outs||[]).map(function(o,i){ return {oid:cid+'_o'+i, label:o.label, price:o.price}; })});
-      return {cid:cid};
-    },
-    adminDeleteMarket:function(t,pid,fid,cid){
-      var m=matches.filter(function(x){return x.fixtureId===fid;})[0]; if(!m) return {};
-      m.customMarkets=(m.customMarkets||[]).filter(function(c){return c.cid!==cid;}); return {};
-    },
-    adminSettleMarket:function(t,pid,fid,cid,win){
-      var m=matches.filter(function(x){return x.fixtureId===fid;})[0] || hist.filter(function(x){return x.fixtureId===fid;})[0]; if(!m) return {};
-      var cm=(m.customMarkets||[]).filter(function(c){return c.cid===cid;})[0]; if(!cm) return {};
-      cm.result=(win==='VOID')?'VOID':win;
-      var winLbl=(win==='VOID')?null:(((cm.outcomes||[]).filter(function(o){return String(o.oid)===String(win);})[0]||{}).label);
-      (m.bets||[]).forEach(function(b){ if(b.marketType!=='c_'+cid) return;
-        if(win==='VOID'){ b.result='Hoàn'; b.payout=b.stake; }
-        else if(b.label===winLbl){ b.result='Thắng'; b.payout=Math.round(b.stake*b.lockedOdds); }
-        else { b.result='Thua'; b.payout=0; } });
-      m.net=(m.bets||[]).reduce(function(s,b){ return s+((b.payout!=null?b.payout:b.stake)-b.stake); },0);
-      return {};
-    },
-    adminSettleStdMarket:function(t,pid,fid,mt,win){
-      var m=hist.filter(function(x){return x.fixtureId===fid;})[0]; if(!m) return {};
-      (m.bets||[]).forEach(function(b){ if(b.marketType!==mt) return;
-        if(win==='VOID'){ b.result='Hoàn'; b.payout=b.stake; }
-        else if(String(b.outcomeId!=null?b.outcomeId:b.oid)===String(win)){ b.result='Thắng'; b.payout=Math.round(b.stake*b.lockedOdds); }
-        else { b.result='Thua'; b.payout=0; } });
-      m.stuckMarkets=(m.stuckMarkets||[]).filter(function(s){return s.marketType!==mt;});
-      m.net=(m.bets||[]).reduce(function(s,b){ return s+((b.payout!=null?b.payout:b.stake)-b.stake); },0);
-      return {ok:true};
-    },
-    adminFinalizeMarket:function(t,pid,fid,cid){
-      var m=matches.filter(function(x){return x.fixtureId===fid;})[0] || hist.filter(function(x){return x.fixtureId===fid;})[0]; if(!m) return {};
-      var cm=(m.customMarkets||[]).filter(function(c){return c.cid===cid;})[0]; if(cm) cm.locked=true; return {};
-    },
-    adminEditMarket:function(t,pid,fid,cid,name,outs){
-      var m=matches.filter(function(x){return x.fixtureId===fid;})[0]; if(!m) return {};
-      var cm=(m.customMarkets||[]).filter(function(c){return c.cid===cid;})[0]; if(!cm) return {};
-      cm.name=name; var maxOid=(cm.outcomes||[]).reduce(function(a,o){return Math.max(a,Number(o.oid));},-1);
-      cm.outcomes=(outs||[]).map(function(o){ var oid=(o.oid===''||o.oid==null)?(++maxOid):o.oid; return {oid:oid,label:o.label,price:o.price}; }); return {};
-    },
-    getHistory:function(){ return hist; },
-    getCrowd:function(t,pid,fid){
-      if(fid==='f1') return {locked:false,open:true,agg:[ // bạn đã cược f1 -> mở đồng thuận, ẩn chi tiết
-        {marketType:'ou',outcomeId:'4',label:'Tài 3.5',n:5,stake:430},{marketType:'ou',outcomeId:'5',label:'Xỉu 3.5',n:2,stake:120},
-        {marketType:'1x2',outcomeId:'1',label:'Brazil',n:6,stake:540},{marketType:'1x2',outcomeId:'3',label:'Haiti',n:1,stake:30} ]};
-      return {locked:false,open:false,agg:[ // trận đã đóng -> lộ cả chi tiết
-        {marketType:'1x2',outcomeId:'1',label:'Spain',n:4,stake:310},{marketType:'1x2',outcomeId:'3',label:'Italy',n:2,stake:90} ],
-        bets:[{nick:'Cao Thủ Kèo',me:false,label:'Spain',stake:150,lockedOdds:1.95,result:'Thắng'},
-              {nick:'Bạn Demo',me:true,label:'Spain',stake:100,lockedOdds:1.95,result:'Thắng'},
-              {nick:'Tèo',me:false,label:'Italy',stake:90,lockedOdds:3.8,result:'Thua'}]};
-    },
-    getLeaderboard:function(){ return lb; },
-    setPinnedBadges:function(t,pid,csv){ var me=lb.filter(function(r){return r.nickname==='Bạn Demo';})[0]; if(me) me.pinned=String(csv||'').split(',').filter(String); return {pinned:me?me.pinned:[]}; },
-    adminListPools:function(){ return [pool,poolB]; },
-    adminCreatePool:function(t,o){ return {poolId:'p1'}; },
-    adminUpdatePool:function(t,pid,obj){ var pc=poolMock(pid); if(pc) for(var k in obj) pc[k]=obj[k]; return {}; },
-    adminSetStatus:function(){ return {}; },
-    adminImport:function(){ return {added:4,total:6,dateTo:'2026-07-15'}; },
-    adminTournaments:function(){ return [{id:16,name:'World Cup',category:'International',fixtures:44},{id:17,name:'Premier League',category:'England',fixtures:10},{id:7,name:'UEFA Champions League',category:'International Clubs',fixtures:48}]; },
-    adminResetPool:function(){ return {updated:8,startingPoints:1000,matchCount:44}; },
-    adminDeletePool:function(){ return {ok:true}; },
-    adminListMembers:function(){ return [
-      {userId:'u1',nickname:'Bạn Demo',points:1240,blocked:false},
-      {userId:'u2',nickname:'Cao Thủ Kèo',points:4200,blocked:false},
-      {userId:'u3',nickname:'Long Bích',points:980,blocked:false},
-      {userId:'u4',nickname:'Spam Bot 99',points:50,blocked:true},
-      {userId:'u5',nickname:'Minh Híp',points:1610,blocked:false}
-    ]; },
-    adminBlockMember:function(){ return {ok:true}; }
-  };
-  window.google={ script:{ run:(function(){
-    function maker(succ,fail){ var o={}; Object.keys(API).forEach(function(fn){ o[fn]=function(){ var args=arguments; setTimeout(function(){ try{ var r=API[fn].apply(null,args); succ&&succ(r); }catch(e){ fail&&fail(e); } }, 220); return o; }; });
-      o.withSuccessHandler=function(f){ return maker(f,fail); }; o.withFailureHandler=function(f){ return maker(succ,f); }; return o; }
-    return maker(null,null);
-  })() } };
-})();
 </script>
 </body>
 </html>
