@@ -633,6 +633,7 @@ var WORKER_URL = 'https://script.google.com/macros/s/AKfycbwWquUQ-DQyUZoKtIuGDiF
 var MOCK = /[?&]mock=1/.test(location.search) || /claude|usercontent/i.test(location.hostname) || location.origin==='null';
 // Single server-call funnel: POST {fn,args} to the Worker. text/plain body = a "simple"
 // CORS request -> no preflight; the Worker still parses it as JSON.
+
 function srun(fn){
   var a=[].slice.call(arguments,1); netStart();
   if(MOCK) return new Promise(function(res){ res(mockRun(fn,a)); }).then(function(d){ netEnd(); return d; }, function(e){ netEnd(); throw e; });
