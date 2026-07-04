@@ -19,3 +19,4 @@ node_modules/
 .clasp.json
 .playwright-mcp/
 .playwright-mcp/**
+gas-proxy/**
