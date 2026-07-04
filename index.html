@@ -729,10 +729,12 @@ function lsGet(kind){ try{ return JSON.parse(localStorage.getItem(lsKey(kind))||
 function lsSet(kind,val){ try{ localStorage.setItem(lsKey(kind), JSON.stringify({t:Date.now(),v:val})); }catch(e){} }
 function swr(kind, fetchFn, apply, skel, force){
   if(!CURPOOL) return;
+  var pool=CURPOOL; // bind this refresh to the pool it was requested for
   var rec=force?null:lsGet(kind);
   if(rec && rec.v!=null){ apply(rec.v); if(Date.now()-rec.t < SWR_TTL) return; } // fresh -> skip refetch
   else if(skel) skel();
-  fetchFn().then(function(d){ lsSet(kind,d); apply(d); }).catch(function(e){ if(!rec) msg(e.message||e); });
+  // Drop a stale response if the user switched pools mid-flight — else pool B's data lands under pool A.
+  fetchFn().then(function(d){ if(CURPOOL!==pool) return; lsSet(kind,d); apply(d); }).catch(function(e){ if(!rec) msg(e.message||e); });
 }
 
 function msg(text, ok){ var m=el('msg'); m.textContent=text; m.className='msg '+(ok?'ok':'err')+' show'; clearTimeout(msg._t); msg._t=setTimeout(function(){m.classList.remove('show')}, ok?3800:5500); }
@@ -898,6 +900,7 @@ function selectPool(poolId, pts){
   var cm=lsGet('matches'); if(cm && cm.v){ applyMatches(cm.v); } else { SEEN.bet=0; betSkeleton(); } // paint last-known instantly, else skeleton
   // 1 RPC warms matches + leaderboard + history; localStorage cache makes later tab switches instant.
   srun('getPoolView', TOKEN, poolId).then(function(pv){
+    if(CURPOOL!==poolId) return; // switched pools before this resolved — drop it (avoids cross-pool cache bleed)
     lsSet('matches',pv.matches); lsSet('lb',pv.leaderboard); lsSet('hist',pv.history);
     applyLb(pv.leaderboard);   // rank chip (renders hidden LB too -> tab switch instant)
     applyHist(pv.history);     // streak chip + new-win toast
@@ -988,7 +991,7 @@ function mktDisplayName(mtype){
 function mktTag(mtype){
   if(mtype==='1x2') return '1X2'; if(mtype==='ou') return 'Tài/Xỉu'; if(mtype==='ah') return 'Chấp';
   if(mtype==='corner_1h'||mtype==='corner_ft') return 'Góc'; if(mtype==='card_ft') return 'Thẻ';
-  if(mtype&&mtype.indexOf('c_')===0) return 'Riêng';
+  if(mtype&&mtype.indexOf('c_')===0) return 'Custom';
   return mtype;
 }
 // ---- Admin: thêm kèo tuỳ chỉnh riêng cho 1 trận (vd "Anh 7 có ghi bàn không?") với odds tự đưa ra ----
@@ -1359,12 +1362,15 @@ function crowdHtml(c, hostId){
     var arr=byM[mt].slice().sort(function(a,b){ return (metric==='people'?b.n-a.n:b.stake-a.stake); });
     var totN=arr.reduce(function(s,a){return s+a.n;},0), totS=arr.reduce(function(s,a){return s+a.stake;},0);
     var tot=(metric==='people'?totN:totS)||1;
-    html+='<div class="mblock"><div class="mhead"><span class="mh-l">'+esc(mktDisplayName(mt))+'</span><span class="mh-r">'+(metric==='people'?totN+' người':totS+'đ')+'</span></div>';
+    var mname=mktDisplayName(mt);
+    // Kèo custom: server trả nhãn "Tên kèo: Cửa" — bỏ tiền tố tên kèo vì header đã hiện tên rồi.
+    var oname=function(a){ var l=a.label||''; return (mt.indexOf('c_')===0 && l.indexOf(mname+': ')===0) ? l.slice(mname.length+2) : l; };
+    html+='<div class="mblock"><div class="mhead"><span class="mh-l">'+esc(mname)+'</span><span class="mh-r">'+(metric==='people'?totN+' người':totS+'đ')+'</span></div>';
     html+='<div class="cbar">'+arr.map(function(a,i){ var val=metric==='people'?a.n:a.stake; var pct=Math.round(val/tot*100);
-      var tip=esc(a.label)+': '+(metric==='people'?a.n+' người':a.stake+'đ'); // hover/tap hiện số thực theo metric
+      var tip=esc(oname(a))+': '+(metric==='people'?a.n+' người':a.stake+'đ'); // hover/tap hiện số thực theo metric
       return '<div class="cseg" title="'+tip+'" onclick="segTip(event,this)" style="flex:'+pct+' '+pct+' 0;background:'+pal[i%pal.length]+';cursor:pointer"></div>'; }).join('')+'</div>';
     html+='<div class="cinline">'+arr.map(function(a,i){ var val=metric==='people'?a.n:a.stake; var pct=Math.round(val/tot*100);
-      return '<span class="citem"><span class="cdot" style="background:'+pal[i%pal.length]+'"></span><span class="ci-n">'+esc(a.label)+'</span><span class="ci-p">'+pct+'%</span></span>'; }).join('')+'</div></div>';
+      return '<span class="citem"><span class="cdot" style="background:'+pal[i%pal.length]+'"></span><span class="ci-n">'+esc(oname(a))+'</span><span class="ci-p">'+pct+'%</span></span>'; }).join('')+'</div></div>';
   });
   if(c.bets){
     html+='<div class="cmkt">Ai cược gì</div>';
