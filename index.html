@@ -107,6 +107,17 @@
     .badges{ display:flex; gap:8px; margin-top:13px; flex-wrap:wrap; }
     .iconbtn{ background:var(--topbar-btn); border:1px solid var(--topbar-line); color:var(--topbar-txt); width:34px; height:34px;
       border-radius:10px; display:inline-flex; align-items:center; justify-content:center; font-size:15px; }
+    /* account menu rows (opened from ☰) */
+    .menurow{ display:flex; align-items:center; gap:13px; width:100%; padding:14px 14px; margin:0 0 9px; min-height:52px;
+      background:var(--card2, var(--card)); border:1px solid var(--line); border-radius:14px; color:var(--ink);
+      font-size:15px; font-weight:700; text-align:left; cursor:pointer; transition:border-color .15s, transform .05s; }
+    .menurow:last-child{ margin-bottom:0; }
+    .menurow:active{ transform:scale(.985); }
+    .menurow .mr-ic{ font-size:19px; width:26px; text-align:center; flex:none; }
+    .menurow .mr-tx{ flex:1; }
+    .menurow .mr-ch{ color:var(--mut); font-size:20px; font-weight:900; flex:none; }
+    .menurow.danger{ color:var(--lose); }
+    .menurow.danger .mr-ch{ color:var(--lose); opacity:.6; }
     /* topbar chips read on the colored header in both themes */
     .topbar .chip{ color:var(--topbar-txt); border-color:var(--topbar-line); background:var(--topbar-chip); }
     .topbar .chip b{ color:var(--topbar-txt); }
@@ -529,9 +540,7 @@
         <div style="display:flex; align-items:center; gap:9px">
           <button class="iconbtn" title="Luật chơi" onclick="showRules()">📖</button>
           <button class="iconbtn" title="Đổi giao diện" onclick="cycleTheme()">🎨</button>
-          <button class="iconbtn" title="Đổi biệt danh" onclick="editNick()">✎</button>
-          <button class="iconbtn" title="Đổi mật khẩu" onclick="changePwd()">🔑</button>
-          <button class="iconbtn" title="Thoát" onclick="logout()">⎋</button>
+          <button class="iconbtn" id="acctbtn" title="Tài khoản" onclick="openMenu()">👤</button>
         </div>
       </div>
       <div class="badges">
@@ -631,6 +640,11 @@ function mockRun(fn, a){
     case 'resume': case 'login': case 'register': return {token:'demo', nickname:'Minh', isAdmin:true};
     case 'setNickname': return {nickname:a[1]};
     case 'changePassword': return {token:'demo'};
+    case 'adminListPools': return [
+      {poolId:'p1', name:'World Cup 2026', status:'open', requirePassword:false, members:24, matchCount:3, maxStake:200, pointsPerMatch:100, startMultiplier:10},
+      {poolId:'p2', name:'Bạn bè thân', status:'draft', requirePassword:true, members:8, matchCount:2, maxStake:100, pointsPerMatch:50, startMultiplier:20},
+      {poolId:'p3', name:'Văn phòng', status:'closed', requirePassword:false, members:15, matchCount:5, maxStake:150, pointsPerMatch:100, startMultiplier:10}
+    ];
     case 'getPools': return db.pools;
     case 'joinPool': return {startingPoints:1000};
     case 'getPoolView': return {matches:db.matches, leaderboard:db.lb, history:db.hist};
@@ -638,6 +652,7 @@ function mockRun(fn, a){
     case 'getLeaderboard': return db.lb;
     case 'getHistory': return db.hist;
     case 'getCrowd': return db.crowd;
+    case 'getSeasons': return db.seasons;
     case 'placeBet': return {currentPoints:920};
     default: return {};   // admin mutations, reload odds, etc. — no-op success
   }
@@ -691,7 +706,13 @@ function mockData(){
   var crowd={ agg:[
     {marketType:'1x2',label:'Brazil',n:8,stake:640},{marketType:'1x2',label:'Argentina',n:3,stake:210},
     {marketType:'ou',label:'Tài 2.5',n:5,stake:300},{marketType:'ou',label:'Xỉu 2.5',n:6,stake:280} ] };
-  return { pools:pools, matches:{ minStake:10, maxStake:200, step:10, currentPoints:920, matches:matches }, hist:hist, lb:lb, crowd:crowd };
+  var seasons=[
+    {name:'Mùa 6/2026', endedAt:iso(-720), champion:{nickname:'Huy',points:1560},
+      top:[{nickname:'Huy',points:1560},{nickname:'Minh',points:1420},{nickname:'Lan',points:1210}]},
+    {name:'Mùa 5/2026', endedAt:iso(-1440), champion:{nickname:'Minh',points:1680},
+      top:[{nickname:'Minh',points:1680},{nickname:'Trang',points:1340},{nickname:'Nam',points:1120}]}
+  ];
+  return { pools:pools, matches:{ minStake:10, maxStake:200, step:10, currentPoints:920, matches:matches }, hist:hist, lb:lb, crowd:crowd, seasons:seasons };
 }
 // Khoá nút khi request đang bay -> chống double-submit (vd tạo trùng sảnh). unbusy khôi phục nhãn.
 function busy(id, txt){ var b=el(id); if(b){ if(b._t==null) b._t=b.innerHTML; b.disabled=true; b.innerHTML=txt; } return b; }
@@ -733,7 +754,7 @@ function doLogin(){
     .then(onAuthed).catch(function(e){ msg(e.message||e); });
 }
 function onAuthed(u){
-  TOKEN=u.token; ME=u; el('me').textContent=u.nickname;
+  TOKEN=u.token; ME=u; el('me').textContent=u.nickname; renderAcctBtn();
   try{ localStorage.setItem('tok', u.token); }catch(e){}
   el('auth').classList.add('hidden'); el('app').classList.remove('hidden');
   if(u.isAdmin && !el('t-admin')){
@@ -747,9 +768,28 @@ function logout(){ try{ localStorage.removeItem('tok'); }catch(e){}
   TOKEN=null; ME=null; CURPOOL=null; CURPOOLNAME=''; POOLS=[];
   el('app').classList.add('hidden'); el('auth').classList.remove('hidden');
 }
+// ---- Tài khoản (menu gộp các thao tác) ----
+function renderAcctBtn(){
+  var b=el('acctbtn'); if(!b||!ME) return;
+  b.innerHTML='<span style="width:24px;height:24px;border-radius:50%;display:flex;align-items:center;justify-content:center;font-size:10.5px;font-weight:900;color:#fff;background:'+avColor(ME.nickname)+'">'+esc(initials(ME.nickname))+'</span>';
+}
+function openMenu(){
+  var head='<div class="row" style="margin-bottom:14px"><div style="font-weight:900;font-size:18px">👤 Tài khoản</div>'+
+    '<button class="iconbtn" onclick="closeModal()">✕</button></div>';
+  var greet='<div class="muted" style="font-size:12.5px;margin:-6px 0 12px">Đang đăng nhập: <b style="color:var(--ink)">'+esc(ME&&ME.nickname||'')+'</b></div>';
+  function item(icon,label,fn,danger){
+    return '<button class="menurow'+(danger?' danger':'')+'" onclick="closeModal();'+fn+'">'+
+      '<span class="mr-ic">'+icon+'</span><span class="mr-tx">'+label+'</span><span class="mr-ch">›</span></button>';
+  }
+  var body=greet+
+    item('✎','Đổi biệt danh','editNick()')+
+    item('🔑','Đổi mật khẩu','changePwd()')+
+    item('⎋','Đăng xuất','logout()',true);
+  showModal(head+body);
+}
 function editNick(){
   var n=prompt('Biệt danh mới:', ME.nickname); if(!n) return;
-  srun('setNickname', TOKEN, n).then(function(r){ ME.nickname=r.nickname; el('me').textContent=r.nickname; msg('Đã đổi biệt danh ✨', true); }).catch(function(e){ msg(e.message||e); });
+  srun('setNickname', TOKEN, n).then(function(r){ ME.nickname=r.nickname; el('me').textContent=r.nickname; renderAcctBtn(); msg('Đã đổi biệt danh ✨', true); }).catch(function(e){ msg(e.message||e); });
 }
 
 // ---- Đổi mật khẩu ----
@@ -768,7 +808,8 @@ function changePwd(){
       '<div id="cp-sbar" style="height:100%;width:0;border-radius:999px;transition:width .2s,background-color .2s"></div></div>'+
     '<div id="cp-shint" class="muted" style="font-size:11.5px;margin-top:5px;min-height:14px"></div>'+
     fld('cp-c','Nhập lại mật khẩu mới')+
-    '<button id="cp-save" class="btn block" style="margin-top:18px" onclick="doChangePwd()">Cập nhật mật khẩu</button>';
+    '<label style="display:flex;align-items:center;gap:10px;margin-top:14px;cursor:pointer"><input type="checkbox" id="cp-logoutall" style="width:17px;height:17px;accent-color:var(--lime)"><span style="font-size:13px;font-weight:700">Đăng xuất các thiết bị khác</span></label>'+
+    '<button id="cp-save" class="btn block" style="margin-top:14px" onclick="doChangePwd()">Cập nhật mật khẩu</button>';
   showModal(head+body);
   el('cp-new').addEventListener('input', cpStrength);
 }
@@ -787,10 +828,11 @@ function doChangePwd(){
   if(newP.length<6){ msg('Mật khẩu mới cần ít nhất 6 ký tự'); return; }
   if(newP===oldP){ msg('Mật khẩu mới phải khác mật khẩu cũ'); return; }
   if(newP!==cP){ msg('Hai ô mật khẩu mới không khớp'); return; }
+  var logoutOthers=!!(el('cp-logoutall') && el('cp-logoutall').checked);
   var b=busy('cp-save','<span class="spin sm"></span> Đang lưu…');
-  srun('changePassword', TOKEN, oldP, newP).then(function(r){
+  srun('changePassword', TOKEN, oldP, newP, logoutOthers).then(function(r){
     if(r && r.token){ TOKEN=r.token; try{ localStorage.setItem('tok', r.token); }catch(e){} }
-    closeModal(); msg('Đã đổi mật khẩu 🔑', true);
+    closeModal(); msg(logoutOthers?'Đã đổi mật khẩu & đăng xuất thiết bị khác 🔑':'Đã đổi mật khẩu 🔑', true);
   }).catch(function(e){ unbusy(b); msg(e.message||e); });
 }
 
@@ -1454,7 +1496,44 @@ function applyLb(rows){
         '<div class="pts">'+n2(r.points)+'đ</div></div>';
     }).join('');
     var listCard=list?'<div class="card" style="padding:6px 14px">'+list+'</div>':'<div class="card center muted" style="padding:22px">🙋<div style="margin-top:6px">Chưa đủ người chơi để xếp hạng thêm.</div></div>';
-    el('view-lb').innerHTML='<div class="muted" style="margin:4px 2px 12px;font-weight:700;letter-spacing:.3px">BẢNG XẾP HẠNG</div>'+podium+meCard+listCard;
+    el('view-lb').innerHTML='<div style="display:flex;justify-content:space-between;align-items:center;margin:4px 2px 12px;gap:10px"><div class="muted" style="font-weight:700;letter-spacing:.3px">BẢNG XẾP HẠNG</div><button class="btn ghost sm" onclick="openSeasons()">🏆 Bảng vàng</button></div>'+podium+meCard+listCard;
+}
+// ---- Kết thúc mùa (admin) ----
+function defaultSeasonName(){ var d=new Date(); return 'Mùa '+(d.getMonth()+1)+'/'+d.getFullYear(); }
+function endSeason(poolId, poolName){
+  var head='<div class="row" style="margin-bottom:6px"><div style="font-weight:900;font-size:18px">🏆 Kết thúc mùa</div><button class="iconbtn" onclick="closeModal()">✕</button></div>';
+  var body='<div class="muted" style="line-height:1.55;margin-bottom:14px">Sảnh <b style="color:var(--ink)">'+esc(poolName)+'</b> — đặt tên mùa rồi xác nhận. Bảng hiện tại sẽ được lưu vào Bảng vàng và điểm được reset cho mùa mới.</div>'+
+    '<label class="mfield"><span>Tên mùa</span><input id="es-name" class="minput" value="'+esc(defaultSeasonName())+'"></label>'+
+    '<div id="es-top" class="muted" style="margin:12px 0 4px">Đang tải top hiện tại…</div>'+
+    '<button id="es-go" class="btn block" style="margin-top:16px" onclick="doEndSeason(\''+poolId+'\')">🏆 Chốt mùa &amp; trao cúp</button>';
+  showModal(head+body);
+  srun('getLeaderboard', TOKEN, poolId).then(function(lb){
+    var host=el('es-top'); if(!host) return; var top=(lb||[]).slice(0,3);
+    host.innerHTML = top.length
+      ? '<div style="font-weight:800;color:var(--ink);margin-bottom:6px">Sẽ trao cúp cho:</div>'+top.map(function(r,i){ return '<div style="display:flex;align-items:center;gap:8px;padding:3px 0">'+['🥇','🥈','🥉'][i]+' <b style="color:var(--ink)">'+esc(r.nickname)+'</b><span style="margin-left:auto">'+n2(r.points)+'đ</span></div>'; }).join('')
+      : 'Chưa có ai trong bảng.';
+  }).catch(function(){ var h=el('es-top'); if(h) h.textContent=''; });
+}
+function doEndSeason(poolId){
+  var name=(el('es-name')&&el('es-name').value||'').trim(); if(!name){ msg('Đặt tên cho mùa'); return; }
+  var b=busy('es-go','<span class="spin sm"></span> Đang chốt…');
+  srun('adminEndSeason', TOKEN, poolId, name).then(function(){ closeModal(); msg('🏆 Đã chốt "'+name+'" & trao cúp!', true); loadAdmin(); }).catch(function(e){ unbusy(b); msg(e.message||e); });
+}
+// ---- Bảng vàng (hall of fame) ----
+function openSeasons(){
+  var head='<div class="row" style="margin-bottom:12px"><div style="font-weight:900;font-size:18px">🏆 Bảng vàng</div><button class="iconbtn" onclick="closeModal()">✕</button></div>';
+  showModal(head+'<div id="sea-body"><div class="spin"></div></div>');
+  srun('getSeasons', TOKEN, CURPOOL).then(function(list){
+    var host=el('sea-body'); if(!host) return;
+    if(!list||!list.length){ host.innerHTML='<div class="card center muted" style="padding:26px">🏆<div style="margin-top:8px">Chưa có mùa nào kết thúc.<br>Nhà vô địch các mùa trước sẽ xuất hiện ở đây.</div></div>'; return; }
+    host.innerHTML=list.map(seasonCard).join('');
+  }).catch(function(e){ var h=el('sea-body'); if(h) h.innerHTML='<div class="muted center" style="padding:20px">'+esc(e.message||e)+'</div>'; });
+}
+function seasonCard(s){
+  var top=(s.top||[]).slice(0,3); var champ=s.champion||top[0]||{};
+  var when=''; try{ if(s.endedAt) when=new Date(s.endedAt).toLocaleDateString('vi-VN'); }catch(e){}
+  var rows=top.map(function(r,i){ return '<div style="display:flex;align-items:center;gap:9px;padding:5px 0"><span style="width:20px;text-align:center">'+['🥇','🥈','🥉'][i]+'</span><span class="lbav" style="width:26px;height:26px;font-size:10px;background:'+avColor(r.nickname)+'">'+esc(initials(r.nickname))+'</span><b style="flex:1;min-width:0;overflow:hidden;text-overflow:ellipsis;white-space:nowrap">'+esc(r.nickname)+'</b><span class="pts">'+n2(r.points)+'đ</span></div>'; }).join('');
+  return '<div class="card"><div class="row" style="align-items:center;margin-bottom:8px"><div style="min-width:0"><div style="font-weight:900;font-size:16px">'+esc(s.name)+'</div>'+(when?'<div class="muted" style="font-size:11.5px;margin-top:2px">Kết thúc '+when+'</div>':'')+'</div><span class="chip gold">🏆 '+esc(champ.nickname||'—')+'</span></div>'+rows+'</div>';
 }
 function initials(s){ s=String(s).trim(); return (s[0]||'?').toUpperCase()+(s.split(/\s+/)[1]?s.split(/\s+/)[1][0].toUpperCase():''); }
 
@@ -1594,8 +1673,13 @@ function renderPoolEditor(p){
    '<div class="card"><div class="asec"><span class="an">6</span>Thành viên<span class="aln"></span></div>'+
      '<div id="ap-members" class="muted">Đang tải thành viên…</div>'+
    '</div>'+
-   /* 7. nâng cao */
-   '<div class="card danger"><div class="asec"><span class="an">7</span>Vùng nguy hiểm<span class="aln"></span></div>'+
+   /* 7. kết thúc mùa */
+   '<div class="card"><div class="asec"><span class="an">7</span>Kết thúc mùa &amp; trao cúp<span class="aln"></span></div>'+
+     '<div class="muted" style="line-height:1.55;margin-bottom:11px">Chốt bảng xếp hạng hiện tại thành một <b>mùa đã hoàn tất</b>: lưu vào Bảng vàng, trao cúp 🏆 cho nhà vô địch, rồi cấp lại điểm khởi đầu cho mọi người để mở mùa mới. Thành viên và Bảng vàng được giữ nguyên.</div>'+
+     '<button class="btn block" onclick="endSeason(\''+p.poolId+'\',\''+esc(p.name).replace(/'/g,"\\'")+'\')">🏆 Kết thúc mùa &amp; trao cúp</button>'+
+   '</div>'+
+   /* 8. nâng cao */
+   '<div class="card danger"><div class="asec"><span class="an">8</span>Vùng nguy hiểm<span class="aln"></span></div>'+
      '<div style="font-weight:800;font-size:14.5px;margin-bottom:5px">↺ Reset sảnh về đầu mùa</div>'+
      '<div class="muted" style="line-height:1.55;margin-bottom:11px">Giữ nguyên thành viên, nhưng <b>xóa toàn bộ kèo đã đặt và lịch sử thắng/thua</b>, rồi cấp lại điểm khởi đầu theo số trận hiện tại. Như xóa sảnh tạo lại — nhưng không ai phải tham gia lại. <b>Không thể hoàn tác.</b></div>'+
      '<button id="ap-reset" class="btn ghost block" style="color:var(--lose);border-color:var(--lose-bd)" onclick="resetPool(\''+p.poolId+'\',\''+esc(p.name).replace(/'/g,"\\'")+'\')">↺ Reset sảnh</button>'+
@@ -1668,9 +1752,12 @@ function renderMembers(poolId, rows){
     var me=(ME&&m.nickname===ME.nickname);
     var blk=m.blocked?'<span class="blkb">🚫 Đã chặn</span>':'';
     var meb=me?'<span class="meb">bạn</span>':'';
-    var btn=me?'' : (m.blocked
+    var esn=esc(m.nickname).replace(/'/g,"\\'");
+    var pwBtn='<button class="btn ghost sm" title="Đặt lại mật khẩu" onclick="resetMemberPwd(\''+m.userId+'\',\''+esn+'\')">🔑</button>';
+    var blkBtn=m.blocked
       ? '<button class="btn ghost sm" onclick="blockMember(\''+poolId+'\',\''+m.userId+'\',false)">Bỏ chặn</button>'
-      : '<button class="btn ghost sm" style="color:var(--lose);border-color:var(--lose-bd)" onclick="blockMember(\''+poolId+'\',\''+m.userId+'\',true,\''+esc(m.nickname).replace(/'/g,"\\'")+'\')">Chặn</button>');
+      : '<button class="btn ghost sm" style="color:var(--lose);border-color:var(--lose-bd)" onclick="blockMember(\''+poolId+'\',\''+m.userId+'\',true,\''+esn+'\')">Chặn</button>';
+    var btn=me?'' : '<div style="display:flex;gap:6px">'+pwBtn+blkBtn+'</div>';
     return '<div class="mbr'+(m.blocked?' blocked':'')+'"><div class="mav" style="background:'+avColor(m.nickname)+'">'+esc(initials(m.nickname))+'</div>'+
       '<div class="mn"><b>'+esc(m.nickname)+'</b>'+meb+blk+'<div class="muted" style="font-size:12px;margin-top:1px">'+n2(m.points)+'đ</div></div>'+btn+'</div>';
   }).join('');
@@ -1679,6 +1766,15 @@ function blockMember(poolId, userId, block, name){
   if(block && !confirm('Chặn “'+name+'” khỏi sảnh?\n\nNgười này sẽ không cược được, không vào lại được và bị ẩn khỏi bảng xếp hạng. Điểm và kèo cũ vẫn được giữ. Bạn có thể bỏ chặn sau.')) return;
   srun('adminBlockMember', TOKEN, poolId, userId, block)
     .then(function(){ msg(block?'Đã chặn thành viên ✓':'Đã bỏ chặn ✓', true); loadMembers(poolId); })
+    .catch(function(e){ msg(e.message||e); });
+}
+function resetMemberPwd(userId, name){
+  var np=prompt('Đặt lại mật khẩu cho “'+name+'”?\n\nNhập mật khẩu mới (4–64 ký tự). Mọi phiên đăng nhập hiện tại của họ sẽ bị đăng xuất.');
+  if(np==null) return;
+  np=np.trim();
+  if(np.length<4||np.length>64){ msg('Mật khẩu mới 4–64 ký tự'); return; }
+  srun('adminResetPassword', TOKEN, userId, np)
+    .then(function(){ msg('Đã đặt lại mật khẩu cho '+name+' ✓', true); })
     .catch(function(e){ msg(e.message||e); });
 }
 function resetPool(poolId, name){

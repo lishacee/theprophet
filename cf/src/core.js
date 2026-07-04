@@ -174,7 +174,9 @@ export function buildOdds(markets, catalog, forced){
 }
 
 // SofaScore helpers — pure. norm/sofaPick for the fallback id search; sofaSum for stat totals.
-export function norm(s){ return String(s || '').toLowerCase().replace(/&/g, 'and').replace(/[^a-z0-9]/g, ''); }
+// OddsPapi vs SofaScore đặt tên khác nhau cho vài đội -> map trước khi norm.
+const SOFA_ALIAS = { 'cape verde': 'cabo verde', 'korea republic': 'south korea', 'turkiye': 'turkey' };
+export function norm(s){ const k = String(s || '').toLowerCase().trim(); const a = SOFA_ALIAS[k] || s; return String(a).toLowerCase().replace(/&/g, 'and').replace(/[^a-z0-9]/g, ''); }
 export function sofaPick(items, t1, t2, kickMs){
   const want = [norm(t1), norm(t2)].sort().join('|');
   let best = null, bestDiff = 12 * 3600000;

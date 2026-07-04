@@ -9,6 +9,7 @@ import * as auth from './src/auth.js';
 import * as pools from './src/pools.js';
 import * as social from './src/social.js';
 import * as admin from './src/admin.js';
+import { apiGet } from './src/api.js';
 
 // D1 shim: prepare().bind().first()/.all()/.run() over node:sqlite.
 function d1(db){
@@ -44,17 +45,36 @@ const relog = await auth.login(env, 'alice', 'pw12');
 const resumed = await auth.resume(env, relog.token);
 assert.strictEqual(resumed.username, 'alice', 'resume returns alice');
 alice.token = relog.token; // login rotates the token — the register-time one is now invalid
-await assert.rejects(auth.login(env, 'alice', 'wrong'), /Sai mật khẩu/, 'bad password rejected');
+await assert.rejects(auth.login(env, 'alice', 'wrong'), /Sai tên đăng nhập hoặc mật khẩu/, 'bad password rejected');
 
 // changePassword: wrong old rejected; correct old rotates token + swaps password
 await assert.rejects(auth.changePassword(env, alice.token, 'nope', 'pw34'), /hiện tại không đúng/, 'wrong old password rejected');
 const cp = await auth.changePassword(env, alice.token, 'pw12', 'pw34');
 assert.ok(cp.token && cp.token !== alice.token, 'changePassword rotates token');
-await assert.rejects(auth.login(env, 'alice', 'pw12'), /Sai mật khẩu/, 'old password no longer works');
+await assert.rejects(auth.login(env, 'alice', 'pw12'), /Sai tên đăng nhập hoặc mật khẩu/, 'old password no longer works');
 const relog2 = await auth.login(env, 'alice', 'pw34');
 assert.ok(relog2.token, 'new password works');
 alice.token = relog2.token; // login rotated token again -> downstream tests reuse the current one
 await assert.rejects(auth.register(env, 'ALICE', 'pw12', 'Alice2'), /đã tồn tại/, 'dup username (UNIQUE, case-insensitive) rejected');
+
+// legacy SHA-256 password verifies AND is transparently upgraded to PBKDF2 on login
+const legacyHash = btoa(String.fromCharCode(...new Uint8Array(
+  await crypto.subtle.digest('SHA-256', new TextEncoder().encode('pw12' + '|' + 'oldsalt')))));
+raw.prepare(`INSERT INTO Users(username,userLower,passHash,salt,nickname,token,tokenExp,createdAt) VALUES(?,?,?,?,?,?,?,?)`)
+   .run('carl', 'carl', legacyHash, 'oldsalt', 'Carl', 't-carl', String(Date.now() + 86400000), new Date().toISOString());
+const carlLogin = await auth.login(env, 'carl', 'pw12');
+assert.ok(carlLogin.token, 'legacy SHA-256 password still logs in');
+const carlRow = raw.prepare(`SELECT passHash FROM Users WHERE userLower=?`).get('carl');
+assert.ok(carlRow.passHash.startsWith('pbkdf2$'), 'legacy hash upgraded to PBKDF2 on login');
+await assert.rejects(auth.login(env, 'carl', 'wrong'), /Sai tên đăng nhập hoặc mật khẩu/, 'wrong password still rejected after upgrade');
+
+// admin reset password: admin sets carl a new password (no old pw needed); old stops working
+await assert.rejects(auth.adminResetPassword(env, alice.token, 'carl', 'newpw99'), /quyền admin/, 'non-admin cannot reset');
+await assert.rejects(auth.adminResetPassword(env, boss.token, 'ghost', 'newpw99'), /Không tìm thấy user/, 'reset unknown user rejected');
+await assert.rejects(auth.adminResetPassword(env, boss.token, 'carl', 'x'), /4–64 ký tự/, 'short new password rejected');
+await auth.adminResetPassword(env, boss.token, 'carl', 'newpw99');
+await assert.rejects(auth.login(env, 'carl', 'pw12'), /Sai tên đăng nhập hoặc mật khẩu/, 'old password dead after admin reset');
+assert.ok((await auth.login(env, 'carl', 'newpw99')).token, 'admin-set password works');
 
 // admin creates + opens a pool
 const { poolId } = await admin.adminCreatePool(env, boss.token, { name: 'WC2026' });
@@ -122,4 +142,54 @@ await admin.adminSettleMarket(env, boss.token, poolId, 'f1', cid, []);
 assert.strictEqual(raw.prepare(`SELECT result r FROM CustomMarkets WHERE cid=?`).get(cid).r, 'NONE', 'empty winners -> NONE (still settled)');
 assert.strictEqual(Number(raw.prepare(`SELECT currentPoints c FROM Memberships WHERE user='alice'`).get().c), base, 'all-lose -> back to base');
 
-console.log('OK — Worker DB flows: auth, admin gate, join, bet, overspend rollback, leaderboard, delta re-settle, multi-winner custom settle.');
+// ---- Seasons: end-season snapshots the leaderboard into the hall of fame, then resets ----
+assert.deepStrictEqual(await social.getSeasons(env, alice.token, poolId), [], 'no seasons yet');
+const es = await admin.adminEndSeason(env, boss.token, poolId, 'Mùa test');
+assert.strictEqual(es.champion.nickname, 'Alice', 'champion snapshot = top member');
+const seasons = await social.getSeasons(env, alice.token, poolId);
+assert.strictEqual(seasons.length, 1, 'one season stored');
+assert.strictEqual(seasons[0].name, 'Mùa test', 'season name kept');
+assert.strictEqual(seasons[0].champion.nickname, 'Alice', 'hall-of-fame champion');
+assert.strictEqual(Number(raw.prepare(`SELECT currentPoints c FROM Memberships WHERE user='alice'`).get().c), es.startingPoints, 'points reset to new-season start');
+assert.strictEqual(raw.prepare(`SELECT count(*) n FROM Bets WHERE poolId=?`).get(poolId).n, 0, 'bets cleared on new season');
+await assert.rejects(admin.adminEndSeason(env, alice.token, poolId, 'x'), /quyền admin/, 'non-admin cannot end season');
+await assert.rejects(admin.adminEndSeason(env, boss.token, poolId, ''), /Cần tên mùa/, 'season needs a name');
+
+// ---- OddsPapi key rotation + GAS proxy envelope ----
+{
+  const realFetch = globalThis.fetch;
+  // status + a JSON string body (mirrors a real HTTP response: .text() is a string, .json() parses it)
+  const httpResp = (status, jsonStr) => ({ status, headers: { get: () => null },
+    text: async () => jsonStr, json: async () => JSON.parse(jsonStr) });
+
+  // DIRECT path: dead key #1 (403) -> auto-fall to working key #2
+  const seen = [];
+  globalThis.fetch = async (url) => {
+    seen.push(url);
+    if (url.includes('apiKey=DEADKEY')) return httpResp(403, '"Forbidden"');
+    if (url.includes('apiKey=GOODKEY')) return httpResp(200, '{"ok":1}');
+    return httpResp(500, '"unexpected"');
+  };
+  assert.deepStrictEqual(await apiGet({ ODDSPAPI_KEYS: 'DEADKEY,GOODKEY' }, '/x'), { ok: 1 }, 'direct: rotation returns data from 2nd key');
+  assert.ok(seen.some(u => u.includes('DEADKEY')) && seen.some(u => u.includes('GOODKEY')), 'direct: tried dead then good key');
+  await assert.rejects(apiGet({ ODDSPAPI_KEYS: 'DEADKEY,DEADKEY' }, '/x'), /hết 2 key khả dụng/, 'direct: all-dead lists both keys');
+
+  // PROXY path: proxy always HTTP 200 but wraps OddsPapi's real status in {status,body};
+  // apiGet must unwrap it (so a wrapped 403 still rotates to the good key).
+  const proxied = [];
+  globalThis.fetch = async (url) => {
+    if (!url.startsWith('https://proxy.local/exec')) throw new Error('proxy path must not hit OddsPapi directly: ' + url);
+    proxied.push(url);
+    const inner = decodeURIComponent((url.match(/[?&]path=([^&]+)/) || [])[1] || '');
+    assert.ok((url.match(/[?&]t=SEKRET(&|$)/)), 'proxy call carries the shared token');
+    if (inner.includes('apiKey=DEADKEY')) return httpResp(200, JSON.stringify({ status: 403, body: '"Forbidden"' }));
+    return httpResp(200, JSON.stringify({ status: 200, body: '{"ok":9}' }));
+  };
+  const env = { ODDSPAPI_KEYS: 'DEADKEY,GOODKEY', ODDSPAPI_PROXY: 'https://proxy.local/exec', ODDSPAPI_PROXY_TOKEN: 'SEKRET' };
+  assert.deepStrictEqual(await apiGet(env, '/x'), { ok: 9 }, 'proxy: unwraps envelope + rotates past wrapped 403');
+  assert.ok(proxied.length >= 2, 'proxy: routed both keys through the proxy');
+
+  globalThis.fetch = realFetch;
+}
+
+console.log('OK — Worker DB flows: auth, admin gate, join, bet, overspend rollback, leaderboard, delta re-settle, multi-winner custom settle, oddspapi key rotation.');

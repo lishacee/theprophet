@@ -59,6 +59,12 @@ CREATE TABLE IF NOT EXISTS Exemptions (
   PRIMARY KEY (poolId, user, fixtureId)
 );
 
+-- Hall of fame: one row per ended season. standings = JSON [{nickname,points},...] highest-first.
+CREATE TABLE IF NOT EXISTS Seasons (
+  poolId TEXT, name TEXT, endedAt TEXT, standings TEXT
+);
+CREATE INDEX IF NOT EXISTS ix_seasons_pool ON Seasons(poolId);
+
 -- Reused for BOTH cached_() values AND script-properties (ADMINS override, resetAt_<pool>, catalog cache).
 CREATE TABLE IF NOT EXISTS Cache (
   key TEXT PRIMARY KEY,

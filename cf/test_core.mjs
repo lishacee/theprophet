@@ -112,5 +112,9 @@ const sres = [
 eq(C.sofaPick(sres, 'Spain', 'Austria', kick), 12813004, 'pick đúng trận theo timestamp');
 eq(C.sofaPick(sres, 'Austria', 'Spain', kick), 12813004, 'khớp cặp bất kể sân');
 eq(C.sofaPick(sres, 'Spain', 'Austria', Date.parse('2030-01-01T00:00:00Z')), null, 'không có trận gần kickoff -> null');
+// alias: OddsPapi "Cape Verde" phải khớp SofaScore "Cabo Verde" (bug Argentina-Cape Verde)
+eq(C.norm('Cape Verde'), C.norm('Cabo Verde'), 'norm alias Cape==Cabo Verde');
+const cvres = [{ type: 'event', entity: { id: 12812999, homeTeam: { name: 'Argentina' }, awayTeam: { name: 'Cabo Verde' }, startTimestamp: kick / 1000 } }];
+eq(C.sofaPick(cvres, 'Argentina', 'Cape Verde', kick), 12812999, 'alias khớp Cape/Cabo Verde');
 
 console.log('OK — core pure logic (poolCfg, filters, oddsMoves, stdOutcomes, badgeEval, buildOdds, sofaSum, gradeExtra, sofaPick, parseApiTime) matches Code.js.');

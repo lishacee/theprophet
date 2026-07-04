@@ -160,6 +160,15 @@ export async function getHistory(env, token, poolId){
   return rows.sort((a,b) => new Date(b.kickoff) - new Date(a.kickoff));
 }
 
+// Bảng vàng: các mùa đã kết thúc, mới nhất trước. champion = hạng 1, top = 3 hạng đầu.
+export async function getSeasons(env, token, poolId){
+  await authUser(env, token);
+  return (await readAll(env, 'Seasons')).filter(s => s.poolId === poolId).map(s => {
+    let st = []; try { st = JSON.parse(s.standings || '[]'); } catch(e){}
+    return { name: s.name, endedAt: s.endedAt, champion: st[0] || null, top: st.slice(0, 3) };
+  }).sort((a, b) => new Date(b.endedAt) - new Date(a.endedAt));
+}
+
 export async function getCrowd(env, token, poolId, fixtureId){
   const user = await authUser(env, token);
   const mt = (await readAll(env, 'Matches')).filter(m => m.poolId === poolId && String(m.fixtureId) === String(fixtureId))[0];

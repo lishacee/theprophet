@@ -13,6 +13,7 @@ export const COLS = {
   Odds: ['bookmaker','fixtureId','oddsJson','updatedAt','prevOddsJson','lastFetchAt'],
   Bets: ['betId','poolId','user','fixtureId','marketType','marketId','outcomeId','stake','lockedOdds','placedAt','result','payout','settledAt'],
   Exemptions: ['poolId','user','fixtureId'],
+  Seasons: ['poolId','name','endedAt','standings'],
   Cache: ['key','value','updatedAt'],
 };
 

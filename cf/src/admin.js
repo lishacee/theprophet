@@ -225,10 +225,8 @@ export async function adminSetStatus(env, token, poolId, status){
   return { ok: true };
 }
 
-export async function adminResetPool(env, token, poolId){
-  await requireAdmin(env, token);
-  const pool = await findRow(env, 'Pools', 'poolId', poolId);
-  if (!pool) throw new Error('Pool không tồn tại');
+// Xoá mọi cược + đưa mọi thành viên về điểm khởi đầu mùa mới. Dùng chung cho reset + kết thúc mùa.
+async function resetPoolPoints_(env, poolId, pool){
   const cfg = C.poolCfg(pool);
   const now = new Date();
   const remaining = (await readAll(env, 'Matches')).filter(mt => mt.poolId === poolId && String(mt.included).toUpperCase() === 'Y' && new Date(mt.kickoff) > now).length;
@@ -237,8 +235,32 @@ export async function adminResetPool(env, token, poolId){
   await env.DB.prepare(`UPDATE Memberships SET startingPoints=?, currentPoints=? WHERE poolId=?`).bind(String(newStart), String(newStart), poolId).run();
   await setProp(env, 'resetAt_' + poolId, now.toISOString());
   await cacheBust(env, ['lb_' + poolId]);
+  return { newStart, matchCount: remaining };
+}
+
+export async function adminResetPool(env, token, poolId){
+  await requireAdmin(env, token);
+  const pool = await findRow(env, 'Pools', 'poolId', poolId);
+  if (!pool) throw new Error('Pool không tồn tại');
+  const { newStart, matchCount } = await resetPoolPoints_(env, poolId, pool);
   const n = (await readAll(env, 'Memberships')).filter(m => m.poolId === poolId).length;
-  return { ok: true, updated: n, startingPoints: newStart, matchCount: remaining };
+  return { ok: true, updated: n, startingPoints: newStart, matchCount };
+}
+
+// Kết thúc mùa: chụp bảng xếp hạng hiện tại vào Bảng vàng (Seasons) rồi reset điểm cho mùa mới.
+export async function adminEndSeason(env, token, poolId, name){
+  await requireAdmin(env, token);
+  name = (name || '').toString().trim();
+  if (!name) throw new Error('Cần tên mùa');
+  const pool = await findRow(env, 'Pools', 'poolId', poolId);
+  if (!pool) throw new Error('Pool không tồn tại');
+  const mems = (await readAll(env, 'Memberships')).filter(m => m.poolId === poolId && !C.isBlocked(m));
+  const standings = [];
+  for (const m of mems) standings.push({ nickname: await C.nicknameOf(env, m.user), points: Number(m.currentPoints) });
+  standings.sort((a, b) => b.points - a.points);
+  await appendRow(env, 'Seasons', [poolId, name, new Date().toISOString(), JSON.stringify(standings)]);
+  const { newStart } = await resetPoolPoints_(env, poolId, pool);
+  return { ok: true, champion: standings[0] || null, startingPoints: newStart };
 }
 
 export async function adminDeletePool(env, token, poolId){

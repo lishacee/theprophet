@@ -14,28 +14,53 @@ function apiKeys(env){
   return [env.ODDSPAPI_KEY, env.ODDSPAPI_KEY_BACKUP].filter(Boolean);
 }
 
+// Che key trong log: giữ 3 ký tự đầu + 4 cuối để nhận diện mà không lộ toàn bộ.
+const maskKey = k => (k.length <= 8 ? '••••' : k.slice(0, 3) + '…' + k.slice(-4));
+const BROWSER_UA = 'Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/126.0 Safari/537.36';
+
+// Gọi 1 URL OddsPapi (path đã kèm apiKey). Nếu ODDSPAPI_PROXY được set -> đi qua GAS proxy
+// (egress IP Google; OddsPapi chặn IP datacenter Cloudflare). Proxy trả bao {status,body} nên
+// ta vẫn thấy đúng mã HTTP thật của OddsPapi. Không set proxy -> gọi thẳng (fallback). Trả {code,text,retryAfter}.
+async function fetchOne(env, path, key){
+  const sep = path.indexOf('?') >= 0 ? '&' : '?';
+  const full = path + sep + 'apiKey=' + key;   // tương đối so với API_BASE
+  if (env.ODDSPAPI_PROXY) {
+    let url = env.ODDSPAPI_PROXY + '?path=' + encodeURIComponent(full);
+    if (env.ODDSPAPI_PROXY_TOKEN) url += '&t=' + encodeURIComponent(env.ODDSPAPI_PROXY_TOKEN);
+    const r = await fetch(url);
+    if (r.status !== 200) return { code: r.status, text: 'proxy HTTP ' + r.status, retryAfter: null };
+    let j; try { j = await r.json(); } catch { return { code: 502, text: 'proxy trả về non-JSON', retryAfter: null }; }
+    return { code: Number(j.status) || 502, text: String(j.body == null ? '' : j.body), retryAfter: null };
+  }
+  const r = await fetch(API_BASE + full, { headers: { 'User-Agent': BROWSER_UA, 'Accept': 'application/json' } });
+  return { code: r.status, text: await r.text(), retryAfter: Number(r.headers.get('retry-after')) || null };
+}
+
 export async function apiGet(env, path){
   const keys = apiKeys(env);
   if (!keys.length) throw new Error('Chưa cấu hình OddsPapi key (ODDSPAPI_KEYS hoặc ODDSPAPI_KEY)');
-  let lastErr;
+  const errs = [];
   for (let i = 0; i < keys.length; i++) {
-    const sep = path.indexOf('?') >= 0 ? '&' : '?';
-    const url = API_BASE + path + sep + 'apiKey=' + keys[i];
+    const label = `key #${i + 1} (${maskKey(keys[i])})`;
+    let keyErr;
     for (let attempt = 0; attempt < 3; attempt++) {
-      const resp = await fetch(url);
-      const code = resp.status;
-      if (code === 200) return await resp.json();
-      const body = await resp.text();
-      if (code === 429 || code === 503) {
-        const wait = Number(resp.headers.get('retry-after') || 1);
-        if (attempt < 2 && wait <= 10) { await sleep(Math.ceil((wait + 0.3) * 1000)); continue; }
-        lastErr = 'HTTP ' + code + ' (rate-limited)'; break;
+      const { code, text, retryAfter } = await fetchOne(env, path, keys[i]);
+      if (code === 200) {
+        if (i > 0) console.log(`OddsPapi ${path}: ${label} OK (bỏ qua ${i} key hỏng phía trước)`);
+        return JSON.parse(text);
       }
-      if (code === 401 || code === 403) { lastErr = 'HTTP ' + code + ': ' + body.slice(0, 120); break; }
-      throw new Error('OddsPapi ' + path + ' -> HTTP ' + code + ': ' + body.slice(0, 200));
+      if (code === 429 || code === 503) {
+        const wait = retryAfter || 1;
+        if (attempt < 2 && wait <= 10) { await sleep(Math.ceil((wait + 0.3) * 1000)); continue; }
+        keyErr = `HTTP ${code} (rate-limited)`; break;
+      }
+      if (code === 401 || code === 403) { keyErr = `HTTP ${code} (key hết hạn/không hợp lệ)`; break; }
+      throw new Error('OddsPapi ' + path + ' -> HTTP ' + code + ': ' + text.slice(0, 200));
     }
+    console.error(`OddsPapi ${path}: ${label} -> ${keyErr} — chuyển key kế`);
+    errs.push(`${label}: ${keyErr}`);
   }
-  throw new Error('OddsPapi ' + path + ' -> hết key khả dụng (' + lastErr + ')');
+  throw new Error(`OddsPapi ${path} -> hết ${keys.length} key khả dụng [${errs.join(' | ')}]`);
 }
 
 function scraperKeys(env){

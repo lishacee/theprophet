@@ -26,6 +26,7 @@ const REGISTRY = {
   setPinnedBadges:(env, t, id, cs) => social.setPinnedBadges(env, t, id, cs),
   getHistory:     (env, t, id)     => social.getHistory(env, t, id),
   getCrowd:       (env, t, id, fx) => social.getCrowd(env, t, id, fx),
+  getSeasons:     (env, t, id)     => social.getSeasons(env, t, id),
   // Phase 5 — admin (all gated by requireAdmin inside each)
   adminAddMarket:      (env, t, id, fx, n, o)   => admin.adminAddMarket(env, t, id, fx, n, o),
   adminEditMarket:     (env, t, id, fx, c, n, o)=> admin.adminEditMarket(env, t, id, fx, c, n, o),
@@ -46,6 +47,8 @@ const REGISTRY = {
   adminToggleMatch:    (env, t, id, fx, inc)    => admin.adminToggleMatch(env, t, id, fx, inc),
   adminListMembers:    (env, t, id)             => admin.adminListMembers(env, t, id),
   adminBlockMember:    (env, t, id, u, b)       => admin.adminBlockMember(env, t, id, u, b),
+  adminResetPassword:  (env, t, u, np)          => auth.adminResetPassword(env, t, u, np),
+  adminEndSeason:      (env, t, id, n)          => admin.adminEndSeason(env, t, id, n),
 };
 
 function cors(env){
