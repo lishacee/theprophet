@@ -210,7 +210,7 @@ export async function adminUpdatePool(env, token, poolId, obj){
   if ('requirePassword' in obj) patch.requirePassword = obj.requirePassword ? 'Y' : '';
   if ('joinPassword' in obj) patch.joinPassword = String(obj.joinPassword == null ? '' : obj.joinPassword);
   if ('extraMarkets' in obj) {
-    const em = {}; C.EXTRA_KEYS.forEach(k => em[k] = { enabled: !!(obj.extraMarkets && obj.extraMarkets[k] && obj.extraMarkets[k].enabled) });
+    const em = {}; C.TOGGLE_KEYS.forEach(k => em[k] = { enabled: !!(obj.extraMarkets && obj.extraMarkets[k] && obj.extraMarkets[k].enabled) });
     patch.extraMarkets = JSON.stringify(em);
   }
   if (Object.keys(patch).length) await updateRow(env, 'Pools', { poolId }, patch);

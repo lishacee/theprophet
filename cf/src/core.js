@@ -7,10 +7,12 @@ export const START_MULTIPLIER = 1.1;
 export const POINTS_PER_MATCH = 400;
 export const NOSHOW_PENALTY = 200;
 export const DEFAULT_BOOKMAKER = 'pinnacle';
-export const MARKETS_CACHE_KEY = 'markets_index_v1';
+export const MARKETS_CACHE_KEY = 'markets_index_v2';   // v2: thêm family bothteamsscore -> buộc dựng lại catalog
 
-export const EXTRA_KEYS = ['corner_ft', 'corner_1h', 'card_ft'];
+export const EXTRA_KEYS = ['corner_ft', 'corner_1h', 'card_ft'];    // over/under, chấm từ SofaScore
 export const OU_KIND_LABEL = { ou: 'bàn', corner_ft: 'góc', corner_1h: 'góc H1', card_ft: 'thẻ' };
+// Kèo admin bật/tắt cho sảnh. btts (2 đội ghi bàn) là yes/no, chấm từ tỉ số -> tách khỏi EXTRA_KEYS.
+export const TOGGLE_KEYS = EXTRA_KEYS.concat(['btts']);
 export const BADGE_PRIORITY = ['prophet','demonking','lonewolf','ximup','sharpshooter','ahdog','oudog','underdog','contrarian','onfire'];
 export const BADGE_BAD = ['bot','coldstreak'];
 
@@ -29,10 +31,10 @@ export function poolCfg(p){
 export function poolLocked(p){ return String(p.requirePassword).toUpperCase() === 'Y' && String(p.joinPassword || '') !== ''; }
 export function poolExtra(poolData){
   const em = {};
-  try { const j = JSON.parse(poolData.extraMarkets || '{}'); EXTRA_KEYS.forEach(k => { if (j[k] && j[k].enabled) em[k] = true; }); } catch(e){}
+  try { const j = JSON.parse(poolData.extraMarkets || '{}'); TOGGLE_KEYS.forEach(k => { if (j[k] && j[k].enabled) em[k] = true; }); } catch(e){}
   return em;
 }
-export function poolExtraObj(poolData){ const en = poolExtra(poolData), o = {}; EXTRA_KEYS.forEach(k => o[k] = { enabled: !!en[k] }); return o; }
+export function poolExtraObj(poolData){ const en = poolExtra(poolData), o = {}; TOGGLE_KEYS.forEach(k => o[k] = { enabled: !!en[k] }); return o; }
 export function isBlocked(m){ return String(m.blocked).toUpperCase() === 'Y'; }
 export function isHalfLine(h){ return Math.abs((Math.abs(h) * 2) % 2 - 1) < 1e-9; }
 export function isAhLine(h){ return Math.abs((Math.abs(h) * 2) % 1) < 1e-9; }
@@ -109,6 +111,9 @@ export function stdOutcomes(oddsJson, marketType, t1, t2){
     return [{ oid: n.home.oid, label: t1 + ' ' + hl, price: n.home.price },
             { oid: n.away.oid, label: t2 + ' ' + al, price: n.away.price }];
   }
+  if (marketType === 'btts') return [
+    { oid: n.yes.oid, label: '2 đội ghi bàn: Có', price: n.yes.price },
+    { oid: n.no.oid, label: '2 đội ghi bàn: Không', price: n.no.price }];
   const kind = marketType === 'ou' ? 'bàn' : OU_KIND_LABEL[marketType];
   return [{ oid: n.over.oid, label: 'Tài ' + kind + ' ' + n.line, price: n.over.price },
           { oid: n.under.oid, label: 'Xỉu ' + kind + ' ' + n.line, price: n.under.price }];
@@ -127,6 +132,7 @@ export const MKT_FAMILIES = [
   { key: 'corner_ft', type: 'totals-corners',  period: 'fulltime', kind: 'ou', lineFilter: 'half', lock: 'always' },
   { key: 'corner_1h', type: 'totals-corners',  period: 'p1',       kind: 'ou', lineFilter: 'half', lock: 'always' },
   { key: 'card_ft',   type: 'totals-bookings', period: 'fulltime', kind: 'ou', lineFilter: 'half', lock: 'always' },
+  { key: 'btts',      type: 'bothteamsscore',  period: 'fulltime', kind: 'yn' },   // 2 đội ghi bàn (mid 104, yes/no), chấm từ tỉ số 2 hiệp chính
 ];
 // fulltime góc/thẻ = 1ST+2ND (KHÔNG dùng ALL — ALL gộp cả hiệp phụ ET1/ET2).
 export const EXTRA_STAT = { corner_ft: [['1ST','2ND'], 'corner'], corner_1h: [['1ST'], 'corner'], card_ft: [['1ST','2ND'], 'card'] };
@@ -168,6 +174,7 @@ export function buildOdds(markets, catalog, forced){
     if (!chosen) return;
     const a1 = price(chosen.mid, chosen.oids[0]), a2 = price(chosen.mid, chosen.oids[1]); if (!(a1 && a2)) return;
     if (fam.kind === 'ah') out[fam.key] = { marketId: chosen.mid, line: chosen.hcap, home: { oid: chosen.oids[0], price: a1 }, away: { oid: chosen.oids[1], price: a2 } };
+    else if (fam.kind === 'yn') out[fam.key] = { marketId: chosen.mid, yes: { oid: chosen.oids[0], price: a1 }, no: { oid: chosen.oids[1], price: a2 } };
     else out[fam.key] = { marketId: chosen.mid, line: chosen.hcap, over: { oid: chosen.oids[0], price: a1 }, under: { oid: chosen.oids[1], price: a2 } };
   });
   return Object.keys(out).length ? out : null;
@@ -213,6 +220,16 @@ export function gradeExtra(b, statsJson, line){
   return (isOver ? total > line : total < line) ? 'WIN' : 'LOSE';
 }
 
+// Chấm kèo 2 đội ghi bàn từ tỉ số 2 hiệp chính (mt.score = periods.fulltime, không tính hiệp phụ).
+// yes.oid == marketId (quy ước như over ở gradeExtra). score dạng "a-b".
+export function gradeBtts(b, score){
+  const m = /^\s*(\d+)\D+(\d+)\s*$/.exec(String(score || ''));
+  if (!m) return 'UNDECIDED';
+  const both = Number(m[1]) > 0 && Number(m[2]) > 0;
+  const isYes = String(b.outcomeId) === String(b.marketId);
+  return (isYes === both) ? 'WIN' : 'LOSE';
+}
+
 // ---- DB-backed shared helpers ----
 export async function findMembership(env, poolId, user){
   return await env.DB.prepare(`SELECT * FROM Memberships WHERE poolId=? AND user=?`).bind(poolId, user).first() || null;
@@ -247,6 +264,7 @@ export async function betLabel(env, b, t1, t2){
     return oc ? (cm.name + ': ' + oc.label) : cm.name;
   }
   if (mt === '1x2') return oid === 102 ? 'Hòa' : (oid === 103 ? t2 : t1);
+  if (mt === 'btts') return '2 đội ghi bàn: ' + (oid === mid ? 'Có' : 'Không');
   if (OU_KIND_LABEL[mt]) { const ln = await midLine(env, mid); return (oid === mid ? 'Tài ' : 'Xỉu ') + OU_KIND_LABEL[mt] + (ln != null ? ' ' + ln : ''); }
   if (mt === 'ah') {
     const al = await midLine(env, mid);
@@ -263,6 +281,7 @@ export function crowdLabels(oddsJson, t1, t2){
     if (o.m1x2) { L['1x2_' + o.m1x2.home.oid] = t1; L['1x2_' + o.m1x2.draw.oid] = 'Hòa'; L['1x2_' + o.m1x2.away.oid] = t2; }
     if (o.mou) { L['ou_' + o.mou.over.oid] = 'Tài bàn ' + o.mou.line; L['ou_' + o.mou.under.oid] = 'Xỉu bàn ' + o.mou.line; }
     EXTRA_KEYS.forEach(k => { const e = o[k]; if (e && e.over) { L[k + '_' + e.over.oid] = 'Tài ' + OU_KIND_LABEL[k] + ' ' + e.line; L[k + '_' + e.under.oid] = 'Xỉu ' + OU_KIND_LABEL[k] + ' ' + e.line; } });
+    if (o.btts) { L['btts_' + o.btts.yes.oid] = '2 đội ghi bàn: Có'; L['btts_' + o.btts.no.oid] = '2 đội ghi bàn: Không'; }
     if (o.mah) {
       const hl = (o.mah.line > 0 ? '+' : '') + o.mah.line, al = ((-o.mah.line) > 0 ? '+' : '') + (-o.mah.line);
       L['ah_' + o.mah.home.oid] = t1 + ' ' + hl; L['ah_' + o.mah.away.oid] = t2 + ' ' + al;

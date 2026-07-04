@@ -69,17 +69,27 @@ eq(C.parseApiTime(''), null, 'empty time');
 const cat = { '1x2|fulltime': [{ mid: 101, hcap: 0, oids: [101, 102, 103] }],
   'totals|fulltime': [{ mid: 1010, hcap: 2.5, oids: [1010, 1011] }, { mid: 1012, hcap: 3.5, oids: [1012, 1013] }],
   'totals-corners|fulltime': [{ mid: 10767, hcap: 9.5, oids: [10767, 10768] }],
-  'spreads|fulltime': [{ mid: 1068, hcap: -0.5, oids: [1068, 1069] }, { mid: 1072, hcap: 0, oids: [1072, 1073] }] };
+  'spreads|fulltime': [{ mid: 1068, hcap: -0.5, oids: [1068, 1069] }, { mid: 1072, hcap: 0, oids: [1072, 1073] }],
+  'bothteamsscore|fulltime': [{ mid: 104, hcap: 0, oids: [104, 105] }] };
 const leaf = p => ({ players: { '0': { price: p } } });
 const mk = { '101': { outcomes: { '101': leaf(2), '102': leaf(3), '103': leaf(4) } },
   '1010': { outcomes: { '1010': leaf(1.9), '1011': leaf(1.9) } },
   '1012': { outcomes: { '1012': leaf(1.4), '1013': leaf(2.9) } },
   '10767': { outcomes: { '10767': leaf(1.85), '10768': leaf(1.95) } },
   '1068': { outcomes: { '1068': leaf(1.85), '1069': leaf(1.96) } },
-  '1072': { outcomes: { '1072': leaf(1.90), '1073': leaf(1.90) } } };
+  '1072': { outcomes: { '1072': leaf(1.90), '1073': leaf(1.90) } },
+  '104': { outcomes: { '104': leaf(1.72), '105': leaf(2.05) } } };
 const bo = C.buildOdds(mk, cat, {});
 eq(bo.m1x2.home.price, 2, 'bo 1x2 home'); eq(bo.mou.line, 2.5, 'bo mou balanced'); eq(bo.mou.under.oid, 1011, 'bo mou under oid');
 eq(bo.corner_ft.line, 9.5, 'bo corner line'); eq(bo.mah.line, 0, 'bo mah most-balanced'); eq(bo.mah.away.oid, 1073, 'bo mah away oid');
+eq(bo.btts.yes.oid, 104, 'bo btts yes oid'); eq(bo.btts.yes.price, 1.72, 'bo btts yes price'); eq(bo.btts.no.oid, 105, 'bo btts no oid');
+
+// gradeBtts: từ tỉ số 2 hiệp chính. yes.oid==marketId(104)
+eq(C.gradeBtts({ marketId: 104, outcomeId: 104 }, '1-1'), 'WIN', 'Có: 1-1 cả hai ghi bàn -> thắng');
+eq(C.gradeBtts({ marketId: 104, outcomeId: 104 }, '2-0'), 'LOSE', 'Có: 2-0 một đội không ghi -> thua');
+eq(C.gradeBtts({ marketId: 104, outcomeId: 105 }, '2-0'), 'WIN', 'Không: 2-0 -> thắng');
+eq(C.gradeBtts({ marketId: 104, outcomeId: 105 }, '3-2'), 'LOSE', 'Không: 3-2 cả hai ghi -> thua');
+eq(C.gradeBtts({ marketId: 104, outcomeId: 104 }, ''), 'UNDECIDED', 'chưa có tỉ số -> UNDECIDED');
 
 // sofaSum: fulltime góc = 1ST+2ND (KHÔNG gồm ET); thiếu period -> null
 const sj = { statistics: [

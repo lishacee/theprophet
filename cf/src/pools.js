@@ -64,7 +64,7 @@ async function getMatches_(env, poolId, user){
   const list = matches.map(mt => {
     const kickoff = new Date(mt.kickoff);
     let odds = oddsMap[mt.fixtureId] ? JSON.parse(oddsMap[mt.fixtureId]) : null;
-    if (odds) C.EXTRA_KEYS.forEach(k => { if (!enabled[k]) delete odds[k]; });
+    if (odds) C.TOGGLE_KEYS.forEach(k => { if (!enabled[k]) delete odds[k]; });
     const bets = myBets.filter(b => b.fixtureId === mt.fixtureId);
     return {
       fixtureId: mt.fixtureId, team1: mt.team1, team2: mt.team2,
@@ -119,14 +119,14 @@ export async function placeBet(env, token, poolId, fixtureId, marketType, outcom
     if (!coc) throw new Error('Cửa cược không hợp lệ');
     lockedOdds = coc.price; marketId = cm.cid; nOutcomes = couts.length;
   } else {
-    if (C.EXTRA_KEYS.indexOf(marketType) >= 0 && !C.poolExtra(poolRow || {})[marketType]) throw new Error('Kèo này chưa được bật cho sảnh');
+    if (C.TOGGLE_KEYS.indexOf(marketType) >= 0 && !C.poolExtra(poolRow || {})[marketType]) throw new Error('Kèo này chưa được bật cho sảnh');
     const bk = (poolRow && poolRow.bookmaker) ? poolRow.bookmaker : C.DEFAULT_BOOKMAKER;
     const oddsRow = (await readAll(env, 'Odds')).filter(o => o.bookmaker === bk && o.fixtureId === fixtureId)[0];
     if (!oddsRow) throw new Error('Chưa có odds cho trận này');
     const odds = JSON.parse(oddsRow.oddsJson);
     const okey = marketType === '1x2' ? 'm1x2' : marketType === 'ou' ? 'mou' : marketType === 'ah' ? 'mah' : marketType;
     const e = odds[okey]; if (!e) throw new Error('Chưa có kèo này');
-    const sels = ['home','draw','away','over','under'].map(k => e[k]).filter(Boolean);
+    const sels = ['home','draw','away','over','under','yes','no'].map(k => e[k]).filter(Boolean);
     const sel = sels.filter(x => String(x.oid) === String(outcomeId))[0];
     if (!sel) throw new Error('Cửa cược không hợp lệ');
     lockedOdds = sel.price; marketId = e.marketId; nOutcomes = sels.length;

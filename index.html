@@ -572,7 +572,8 @@ var TOKEN=null, ME=null, CURPOOL=null, CURPOOLNAME='', CURPOOLPTS=null, POOLS=[]
 var EXTRA_MKT_LIB=[
   {key:'corner_1h', label:'Tài/Xỉu góc – Hiệp 1', over:'Tài góc H1', under:'Xỉu góc H1', defLine:4.5},
   {key:'corner_ft', label:'Tài/Xỉu góc – Cả trận', over:'Tài góc', under:'Xỉu góc', defLine:9.5},
-  {key:'card_ft', label:'Tài/Xỉu thẻ phạt – Cả trận', over:'Tài thẻ', under:'Xỉu thẻ', defLine:3.5}
+  {key:'card_ft', label:'Tài/Xỉu thẻ phạt – Cả trận', over:'Tài thẻ', under:'Xỉu thẻ', defLine:3.5},
+  {key:'btts', label:'2 đội ghi bàn – Cả trận', yn:true, yes:'Có', no:'Không'}
 ];
 function isAdmin(){ return !!(ME && ME.isAdmin); }
 
@@ -952,6 +953,12 @@ function matchCard(m){
     // kèo mở rộng do admin bật cho cả sảnh (vd tài/xỉu góc) — cùng cấu hình cho mọi trận trong sảnh
     EXTRA_MKT_LIB.forEach(function(item){
       var eo=m.odds[item.key]; if(!eo) return;
+      if(item.yn){
+        body+='<div class="mkt">'+esc(item.label)+'</div><div class="odds-grid">'+
+          oddBtnQ(m,item.key,eo.yes.oid,item.yes||'Có',eo.yes.price)+
+          oddBtnQ(m,item.key,eo.no.oid,item.no||'Không',eo.no.price)+'</div>'+betLines(byMkt[item.key],m);
+        return;
+      }
       body+='<div class="mkt">'+esc(item.label)+' <span class="ln">'+eo.line+'</span></div><div class="odds-grid">'+
         oddBtnQ(m,item.key,eo.over.oid,item.over||'Tài',eo.over.price)+
         oddBtnQ(m,item.key,eo.under.oid,item.under||'Xỉu',eo.under.price)+'</div>'+betLines(byMkt[item.key],m);
@@ -990,7 +997,7 @@ function mktDisplayName(mtype){
 // Nhãn NGẮN cho badge kèo (cửa cược đã ghi rõ loại rồi, badge chỉ cần họ kèo).
 function mktTag(mtype){
   if(mtype==='1x2') return '1X2'; if(mtype==='ou') return 'Tài/Xỉu'; if(mtype==='ah') return 'Chấp';
-  if(mtype==='corner_1h'||mtype==='corner_ft') return 'Góc'; if(mtype==='card_ft') return 'Thẻ';
+  if(mtype==='corner_1h'||mtype==='corner_ft') return 'Góc'; if(mtype==='card_ft') return 'Thẻ'; if(mtype==='btts') return 'BTTS';
   if(mtype&&mtype.indexOf('c_')===0) return 'Custom';
   return mtype;
 }
@@ -1101,7 +1108,9 @@ function outcomeLabel(m, mtype, oid){
   if(mtype.indexOf('c_')===0){ var ccid=mtype.slice(2); var ccm=((m&&m.customMarkets)||[]).filter(function(c){return c.cid===ccid;})[0];
     if(ccm){ var coc=(ccm.outcomes||[]).filter(function(x){return eq(x.oid,oid);})[0]; return coc?coc.label:''; } return ''; }
   var extLib=EXTRA_MKT_LIB.filter(function(it){return it.key===mtype;})[0];
-  if(extLib){ var eo=m&&m.odds&&m.odds[mtype]; if(eo){ if(eq(oid,eo.over.oid)) return 'Tài '+eo.line; if(eq(oid,eo.under.oid)) return 'Xỉu '+eo.line; } return ''; }
+  if(extLib){ var eo=m&&m.odds&&m.odds[mtype]; if(eo){
+      if(extLib.yn){ if(eq(oid,eo.yes.oid)) return extLib.yes||'Có'; if(eq(oid,eo.no.oid)) return extLib.no||'Không'; return ''; }
+      if(eq(oid,eo.over.oid)) return 'Tài '+eo.line; if(eq(oid,eo.under.oid)) return 'Xỉu '+eo.line; } return ''; }
   var o=m&&m.odds; if(!o) return '';
   if(mtype==='1x2' && o.m1x2){ var x=o.m1x2; if(eq(oid,x.home.oid)) return m.team1; if(eq(oid,x.draw.oid)) return 'Hòa'; if(eq(oid,x.away.oid)) return m.team2; }
   if(mtype==='ou' && o.mou){ var u=o.mou; if(eq(oid,u.over.oid)) return 'Tài '+u.line; if(eq(oid,u.under.oid)) return 'Xỉu '+u.line; }

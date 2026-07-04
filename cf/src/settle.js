@@ -28,7 +28,8 @@ export async function settleMatches(env){
         ft = sc && sc.scores && sc.scores.periods && sc.scores.periods.fulltime;
       } catch (e) { console.error('scores ' + mt.fixtureId + ': ' + e.message); }
       if (ft && ft.participant1Score != null) {
-        await updateRow(env, 'Matches', { poolId: mt.poolId, fixtureId: mt.fixtureId }, { score: ft.participant1Score + '-' + ft.participant2Score });
+        mt.score = ft.participant1Score + '-' + ft.participant2Score;   // giữ local để chấm btts ngay lượt này
+        await updateRow(env, 'Matches', { poolId: mt.poolId, fixtureId: mt.fixtureId }, { score: mt.score });
       } else if (new Date(mt.kickoff) >= new Date(now - 4 * 3600000)) {
         continue; // chưa hết 2 hiệp -> chờ tick sau (an toàn tới 4h)
       }
@@ -40,7 +41,9 @@ export async function settleMatches(env){
     let sofa, sofaTried = false;
     for (const b of bets) {
       let res;
-      if (C.EXTRA_KEYS.indexOf(String(b.marketType)) >= 0) {
+      if (String(b.marketType) === 'btts') {
+        res = C.gradeBtts(b, mt.score);   // 2 đội ghi bàn: từ tỉ số (OddsPapi /settlements không chấm kèo này)
+      } else if (C.EXTRA_KEYS.indexOf(String(b.marketType)) >= 0) {
         if (!sofaTried) { sofa = await sofaStats(env, mt.fixtureId); sofaTried = true; }
         res = C.gradeExtra(b, sofa, await C.midLine(env, Number(b.marketId)));
       } else {
