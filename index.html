@@ -277,6 +277,13 @@
     .sq-opt .sq-oo{ color:var(--mut); font-weight:700; font-size:12.5px; }
     .sq-opt.cur{ border-color:var(--win-bd); box-shadow:0 0 0 2px var(--win-soft); color:var(--win); }
     .sq-opt .sq-cur{ font-size:10px; font-weight:800; color:var(--win); background:var(--win-soft); padding:1px 6px; border-radius:999px; }
+    /* multi-select checklist: tick every winning outcome */
+    .sq-opts.multi{ flex-direction:column; flex-wrap:nowrap; }
+    .sq-opt.check{ flex:1 1 auto; width:100%; min-width:0; justify-content:flex-start; text-align:left; background:var(--card2); }
+    .sq-opt.check .sq-box{ flex:none; width:22px; height:22px; border-radius:7px; border:2px solid var(--line2); background:var(--inputbg); display:inline-flex; align-items:center; justify-content:center; font-size:13px; color:transparent; transition:.14s; }
+    .sq-opt.check .sq-lbl{ flex:1; min-width:0; }
+    .sq-opt.check.cur{ background:var(--win-tint); }
+    .sq-opt.check.cur .sq-box{ background:var(--win); border-color:var(--win); color:#06210f; }
     .sq-refund{ width:100%; margin-top:9px; background:transparent; color:var(--mut); border:1px dashed var(--line2); border-radius:12px; padding:10px; font-weight:700; font-size:12.5px; cursor:pointer; transition:.14s; }
     .sq-refund:hover{ color:var(--txt); }
     .sq-refund.cur{ color:var(--txt); border-style:solid; }
@@ -1227,7 +1234,7 @@ function stuckItem(it){
   var m=it.m, sm=it.sm, fid=m.fixtureId, mt=sm.marketType, key=fid+'_'+mt;
   var mn=esc(m.team1)+' vs '+esc(m.team2), sc=m.score?' · '+esc(m.score.replace('-',' - ')):'';
   var opts=(sm.outcomes||[]).map(function(oc){ return '<button class="sq-opt" onclick="doSettleStd(\''+fid+'\',\''+mt+'\',\''+oc.oid+'\')">'+esc(oc.label)+' <span class="sq-oo">@ '+oc.price+'</span></button>'; }).join('');
-  var panel='<div class="sq-panel" id="sqp_'+key+'" style="display:none">'+
+  var panel='<div class="sq-panel" id="sqp_'+key+'" style="display:'+(SQ_OPEN[key]?'block':'none')+'">'+
     '<div class="sq-hint">Kèo tự ra không chấm được (thiếu dữ liệu). Chọn cửa THẮNG — các cửa còn lại thua. Điểm áp ngay, chọn lại được.</div>'+
     '<div class="sq-opts">'+opts+'</div>'+
     '<button class="sq-refund" onclick="doSettleStd(\''+fid+'\',\''+mt+'\',\'VOID\')">↩︎ Hoàn cả kèo — trả điểm mọi người</button>'+
@@ -1260,11 +1267,11 @@ function settleItem(it){
   var actions=settled
     ? '<div class="sq-actions"><button class="sq-btn ghost" onclick="toggleSettlePanel(\''+key+'\')">↻ Sửa ▾</button><button class="sq-btn lock" onclick="finalizeMarket(\''+fid+'\',\''+cid+'\')">🔒 Chốt</button></div>'
     : '<button class="sq-btn" onclick="toggleSettlePanel(\''+key+'\')">Chấm ▾</button>';
-  var opts=(cm.outcomes||[]).map(function(oc){ var cur=!!winSet[String(oc.oid)]; return '<button class="sq-opt'+(cur?' cur':'')+'" onclick="toggleWin(\''+fid+'\',\''+cid+'\',\''+oc.oid+'\')">'+esc(oc.label)+' <span class="sq-oo">@ '+oc.price+'</span>'+(cur?'<span class="sq-cur">✓ thắng</span>':'')+'</button>'; }).join('');
+  var opts=(cm.outcomes||[]).map(function(oc){ var cur=!!winSet[String(oc.oid)]; return '<button class="sq-opt check'+(cur?' cur':'')+'" onclick="toggleWin(\''+fid+'\',\''+cid+'\',\''+oc.oid+'\')"><span class="sq-box">✓</span><span class="sq-lbl">'+esc(oc.label)+'</span><span class="sq-oo">@ '+oc.price+'</span>'+(cur?'<span class="sq-cur">thắng</span>':'')+'</button>'; }).join('');
   var refundCur=voided;
-  var panel='<div class="sq-panel" id="sqp_'+key+'" style="display:none">'+
-    '<div class="sq-hint">Bấm chọn <b>mọi</b> cửa THẮNG — chọn được nhiều cửa (vd vừa “ghi bàn” vừa “ghi bàn &amp; kiến tạo”). Bấm lại để bỏ. Cửa không chọn = thua. Điểm áp ngay, sửa lại được.</div>'+
-    '<div class="sq-opts">'+opts+'</div>'+
+  var panel='<div class="sq-panel" id="sqp_'+key+'" style="display:'+(SQ_OPEN[key]?'block':'none')+'">'+
+    '<div class="sq-hint">☑︎ <b>Chọn được nhiều cửa.</b> Tick <b>mọi</b> cửa THẮNG (vd vừa “ghi bàn” vừa “ghi bàn &amp; kiến tạo”). Tick lại để bỏ. Cửa không tick = thua. Điểm áp ngay, sửa lại được.</div>'+
+    '<div class="sq-opts multi">'+opts+'</div>'+
     '<button class="sq-refund'+(refundCur?' cur':'')+'" onclick="doSettleMarket(\''+fid+'\',\''+cid+'\',\'VOID\')">↩︎ Hoàn cả kèo — trả điểm mọi người'+(refundCur?' · đang chọn':'')+'</button>'+
     '</div>';
   return '<div class="sq-item'+(settled?' done':'')+'"><div class="sq-row"><div class="sq-info"><div class="sq-name">🎯 '+esc(cm.name)+'</div><div class="sq-match">'+sub+'</div></div>'+actions+'</div>'+panel+'</div>';
@@ -1276,12 +1283,15 @@ function toggleWin(fid,cid,oid){
   if(!cm){ msg('Không tìm thấy kèo'); return; }
   var wins=winnerOids(cm), i=wins.indexOf(String(oid));
   if(i>=0) wins.splice(i,1); else wins.push(String(oid));
+  // Optimistic: áp kết quả tại chỗ + hiện dấu tick / trạng thái đã chấm NGAY, không đợi server round-trip.
+  var prev=cm.result; cm.result=wins.join(','); SQ_OPEN[fid+'_'+cid]=true; renderHist();
   srun('adminSettleMarket', TOKEN, CURPOOL, fid, cid, wins).then(function(){
     msg(wins.length?'Đã chấm kèo ✓':'Đã bỏ hết cửa thắng — mọi cửa thua ✓', true);
-    loadMatches(true); try{ loadHist(true); }catch(e){}
-  }).catch(function(e){ msg(e.message||e); });
+    loadMatches(true);
+  }).catch(function(e){ cm.result=prev; renderHist(); msg(e.message||e); });
 }
-function toggleSettlePanel(key){ var p=el('sqp_'+key); if(!p) return; p.style.display=(!p.style.display||p.style.display==='none')?'block':'none'; }
+var SQ_OPEN={};
+function toggleSettlePanel(key){ var p=el('sqp_'+key); if(!p) return; var open=!(!p.style.display||p.style.display==='none'); SQ_OPEN[key]=!open; p.style.display=SQ_OPEN[key]?'block':'none'; }
 function renderHist(){
   if(!HIST.length){ el('view-hist').innerHTML=settleQueueHtml()+'<div class="card center muted" style="padding:30px">🧾<div style="margin-top:8px">Chưa có gì ở đây.<br>Đặt kèo hoặc chờ trận kết thúc nhé!</div></div>'; return; }
   var rows=HIST.filter(function(m){ return HFILTER==='all' || (HFILTER==='upcoming'? m.upcoming : !m.upcoming); });
