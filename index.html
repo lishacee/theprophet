@@ -624,9 +624,8 @@ function teamFlag(name){
 var NET=0;
 function netStart(){ if(NET++===0){ var b=el('netbar'); if(b) b.classList.add('on'); } }
 function netEnd(){ if(--NET<=0){ NET=0; var b=el('netbar'); if(b) b.classList.remove('on'); } }
-// API base. Đi qua GAS proxy (domain script.google.com được bộ lọc công ty cho qua) -> Worker.
-// Worker trực tiếp: 'https://the-prophet.lishace.workers.dev' (bị chặn *.workers.dev trên mạng công ty).
-var WORKER_URL = 'https://script.google.com/macros/s/AKfycbwWquUQ-DQyUZoKtIuGDiFtXlNpKabXHesntm9DnDDsW_D9zShvkqm0Mv-2vwSmeBsQvw/exec';
+// Cloudflare Worker API base. First-party fetch, so Safari keeps the session.
+var WORKER_URL = 'https://the-prophet.lishace.workers.dev';
 // ponytail: mock layer for design previews. Claude Artifact's CSP blocks ALL external fetch,
 // so the real srun can never reach the Worker there. MOCK on -> return canned data, no network.
 // Auto-on inside an Artifact/sandbox host; force anywhere with ?mock=1.
