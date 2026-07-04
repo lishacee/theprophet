@@ -22,18 +22,6 @@
 var API_BASE = 'https://api.oddspapi.io/v4';
 var TOKEN = 'CHANGE_ME';   // đặt trùng với secret ODDSPAPI_PROXY_TOKEN; để '' để tắt kiểm tra
 
-var WORKER_URL = 'https://the-prophet.lishace.workers.dev';
-
-function doPost(e){
-  var body = (e && e.postData && e.postData.contents) || '{}';
-  var resp = UrlFetchApp.fetch(WORKER_URL, {
-    method: 'post', contentType: 'application/json',
-    payload: body, muteHttpExceptions: true
-  });
-  // Trả NGUYÊN body của Worker ({ok,data}|{ok,error}) -> srun đọc j.ok, không cần HTTP status.
-  return ContentService.createTextOutput(resp.getContentText()).setMimeType(ContentService.MimeType.JSON);
-}
-
 function doGet(e){
   var p = (e && e.parameter) || {};
   if (TOKEN && p.t !== TOKEN) return json_({ status: 403, body: '{"error":"proxy: bad token"}' });
