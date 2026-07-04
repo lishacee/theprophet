@@ -1618,6 +1618,7 @@ function createPool(){
   var b=busy('np-create','<span class="spin sm"></span> Đang tạo…');
   srun('adminCreatePool', TOKEN, {name:name}).then(function(r){ msg('Đã tạo sảnh ✓', true); editPool(r.poolId); }).catch(function(e){ unbusy(b); msg(e.message||e); });
 }
+
 var AP_STATUS='draft', AP_MATCHES=0;
 function setApStatus(s){ AP_STATUS=s; ['draft','open','closed'].forEach(function(x){ var b=el('aps-'+x); if(b){ b.className='s-'+x+(x===s?' on':''); } }); }
 function toggleApPwd(cb){ var box=el('ap-pwdwrap'); if(box) box.style.display=cb.checked?'block':'none'; }
