@@ -142,6 +142,40 @@ await admin.adminSettleMarket(env, boss.token, poolId, 'f1', cid, []);
 assert.strictEqual(raw.prepare(`SELECT result r FROM CustomMarkets WHERE cid=?`).get(cid).r, 'NONE', 'empty winners -> NONE (still settled)');
 assert.strictEqual(Number(raw.prepare(`SELECT currentPoints c FROM Memberships WHERE user='alice'`).get().c), base, 'all-lose -> back to base');
 
+// ---- Clone custom market across pools (snapshot + provenance + settle suggestion) ----
+const B = await admin.adminCreatePool(env, boss.token, { name: 'Pool B' });
+// same fixture f1 in pool B, PAST kickoff so it shows in history; odds are shared by fixtureId (already seeded)
+raw.prepare(`INSERT INTO Matches(poolId,fixtureId,tournamentId,team1,team2,kickoff,included) VALUES(?,?,?,?,?,?,?)`)
+   .run(B.poolId, 'f1', '16', 'Spain', 'Brazil', new Date(Date.now() - 3600000).toISOString(), 'Y');
+
+const clonable = await admin.adminListClonableMarkets(env, boss.token, B.poolId, 'f1');
+const srcMkt = clonable.filter(c => c.srcCid === cid)[0];
+assert.ok(srcMkt, 'source market from pool A is clonable into B');
+assert.strictEqual(srcMkt.already, false, 'not yet cloned');
+assert.strictEqual(srcMkt.outcomes.length, 3, 'source outcomes carried for preview');
+
+const cloned = await admin.adminCloneMarkets(env, boss.token, B.poolId, 'f1', [{ srcPool: poolId, srcCid: cid }]);
+assert.strictEqual(cloned.n, 1, 'cloned 1 market');
+const bRow = raw.prepare(`SELECT * FROM CustomMarkets WHERE poolId=? AND srcCid=?`).get(B.poolId, cid);
+assert.ok(bRow && bRow.cid !== cid, 'clone has a fresh cid');
+assert.strictEqual(bRow.srcPool, poolId, 'provenance srcPool recorded');
+assert.strictEqual(JSON.parse(bRow.outcomesJson).map(o => o.oid).join(','), '0,1,2', 'oids preserved verbatim for result mapping');
+assert.strictEqual(bRow.result || '', '', 'clone starts unsettled');
+
+const clonable2 = await admin.adminListClonableMarkets(env, boss.token, B.poolId, 'f1');
+assert.strictEqual(clonable2.filter(c => c.srcCid === cid)[0].already, true, 'soft guard: source now flagged already-cloned');
+
+// settle suggestion: set source result -> getHistory(B) surfaces srcResult on the unsettled clone
+await admin.adminSettleMarket(env, boss.token, poolId, 'f1', cid, ['0', '2']);
+const histB = await social.getHistory(env, boss.token, B.poolId);
+const cmB = histB.filter(r => r.fixtureId === 'f1')[0].customMarkets.filter(c => c.cid === bRow.cid)[0];
+assert.strictEqual(cmB.srcResult, '0,2', 'clone carries source result as settle suggestion');
+
+// soft guard is UI-only: backend still allows an override re-clone (fresh copy)
+const again = await admin.adminCloneMarkets(env, boss.token, B.poolId, 'f1', [{ srcPool: poolId, srcCid: cid }]);
+assert.strictEqual(again.n, 1, 'backend allows override re-clone (soft guard)');
+assert.strictEqual(raw.prepare(`SELECT count(*) n FROM CustomMarkets WHERE poolId=? AND srcCid=?`).get(B.poolId, cid).n, 2, 'two copies after override');
+
 // ---- Seasons: end-season snapshots the leaderboard into the hall of fame, then resets ----
 assert.deepStrictEqual(await social.getSeasons(env, alice.token, poolId), [], 'no seasons yet');
 const es = await admin.adminEndSeason(env, boss.token, poolId, 'Mùa test');

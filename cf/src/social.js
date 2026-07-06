@@ -1,18 +1,20 @@
 // Leaderboard + badges + history + crowd. Port of Code.js getLeaderboard/badgesForPool_/
 // setPinnedBadges/getHistory/getCrowd. betLabel is async now, so bet lists use Promise.all.
 import { authUser, isAdmin } from './auth.js';
-import { readAll, findRow, updateRow, cached, cacheBust, prop } from './db.js';
+import { readAll, findRow, findRows, updateRow, cached, cacheBust, prop } from './db.js';
 import * as C from './core.js';
 
 export async function getLeaderboard(env, token, poolId){
   await authUser(env, token);
   return cached(env, 'lb_' + poolId, 30, async () => {
     const badges = await badgesForPool(env, poolId);
-    const mems = (await readAll(env, 'Memberships')).filter(m => m.poolId === poolId && !C.isBlocked(m));
+    const mems = (await findRows(env, 'Memberships', 'poolId', poolId)).filter(m => !C.isBlocked(m));
+    const nicks = {};
+    (await readAll(env, 'Users')).forEach(u => { nicks[u.userLower] = u.nickname; });
     const out = [];
     for (const m of mems) {
       const b = badges[m.user] || { earned: [], pinned: [] };
-      out.push({ nickname: await C.nicknameOf(env, m.user), points: Number(m.currentPoints), start: Number(m.startingPoints),
+      out.push({ nickname: nicks[String(m.user).toLowerCase()] || m.user, points: Number(m.currentPoints), start: Number(m.startingPoints),
         badges: b.earned, pinned: b.pinned, streakW: b.streakW || 0, streakL: b.streakL || 0 });
     }
     return out.sort((a,b) => b.points - a.points);
@@ -33,8 +35,7 @@ export async function setPinnedBadges(env, token, poolId, idsCsv){
 
 async function badgesForPool(env, poolId){
   const kick = {}; let nMatches = 0;
-  (await readAll(env, 'Matches')).forEach(mt => {
-    if (mt.poolId !== poolId) return;
+  (await findRows(env, 'Matches', 'poolId', poolId)).forEach(mt => {
     kick[mt.fixtureId] = new Date(mt.kickoff).getTime();
     if (String(mt.included).toUpperCase() === 'Y') nMatches++;
   });
@@ -42,7 +43,7 @@ async function badgesForPool(env, poolId){
   const cfg = C.poolCfg(poolRow || {});
   const baseStart = Math.round(nMatches * cfg.pointsPerMatch * cfg.startMultiplier);
 
-  const mems = (await readAll(env, 'Memberships')).filter(m => m.poolId === poolId && !C.isBlocked(m));
+  const mems = (await findRows(env, 'Memberships', 'poolId', poolId)).filter(m => !C.isBlocked(m));
   const pinnedRaw = {}, stats = {};
   mems.forEach(m => {
     stats[m.user] = { user: m.user, points: Number(m.currentPoints), start: Number(m.startingPoints) || 0,
@@ -51,7 +52,7 @@ async function badgesForPool(env, poolId){
   });
 
   const mktBettors = {};
-  const allBets = (await readAll(env, 'Bets')).filter(b => b.poolId === poolId);
+  const allBets = await findRows(env, 'Bets', 'poolId', poolId);
   allBets.forEach(b => {
     const k = b.fixtureId + '|' + b.marketType, m = mktBettors[k] || (mktBettors[k] = { _all: {} });
     (m[b.outcomeId] || (m[b.outcomeId] = {}))[b.user] = 1; m._all[b.user] = 1;
@@ -94,37 +95,46 @@ async function badgesForPool(env, poolId){
 
 export async function getHistory(env, token, poolId){
   const user = await authUser(env, token);
+  return cached(env, 'hist_' + poolId + '_' + user, 15, () => getHistory_(env, poolId, user));
+}
+async function getHistory_(env, poolId, user){
   const now = new Date();
   const poolRow = await findRow(env, 'Pools', 'poolId', poolId);
   const cfg = C.poolCfg(poolRow || {});
   const mem = await C.findMembership(env, poolId, user);
   const joinAt = mem ? new Date(mem.joinAt) : null;
-  const myBets = (await readAll(env, 'Bets')).filter(b => b.poolId === poolId && b.user === user);
-  const exemptions = (await readAll(env, 'Exemptions')).filter(e => e.poolId === poolId && e.user === user);
+  const myBets = (await findRows(env, 'Bets', 'poolId', poolId)).filter(b => b.user === user);
+  const exemptions = (await findRows(env, 'Exemptions', 'poolId', poolId)).filter(e => e.user === user);
   const betFixtures = {};
   myBets.forEach(b => betFixtures[b.fixtureId] = true);
   const cmByFix = {};
-  (await readAll(env, 'CustomMarkets')).forEach(c => {
-    if (c.poolId !== poolId) return;
+  (await findRows(env, 'CustomMarkets', 'poolId', poolId)).forEach(c => {
     let outs = []; try { outs = JSON.parse(c.outcomesJson || '[]'); } catch(e){}
-    (cmByFix[c.fixtureId] = cmByFix[c.fixtureId] || []).push({ cid: c.cid, name: c.name, result: c.result, outcomes: outs, locked: String(c.locked).toUpperCase() === 'Y' });
+    (cmByFix[c.fixtureId] = cmByFix[c.fixtureId] || []).push({ cid: c.cid, name: c.name, result: c.result, outcomes: outs, locked: String(c.locked).toUpperCase() === 'Y', srcPool: c.srcPool || '', srcCid: c.srcCid || '' });
   });
   const admin = await isAdmin(env, user);
   const stuckByFix = {}, oddsByFix = {};
   if (admin) {
     const poolBk = (poolRow && poolRow.bookmaker) ? poolRow.bookmaker : C.DEFAULT_BOOKMAKER;
-    (await readAll(env, 'Odds')).forEach(o => { if (o.bookmaker === poolBk) oddsByFix[o.fixtureId] = o.oddsJson; });
+    (await findRows(env, 'Odds', 'bookmaker', poolBk)).forEach(o => { oddsByFix[o.fixtureId] = o.oddsJson; });
     const stuckSeen = {};
-    (await readAll(env, 'Bets')).forEach(b => {
-      if (b.poolId !== poolId || b.result || String(b.marketType).indexOf('c_') === 0) return;
+    (await findRows(env, 'Bets', 'poolId', poolId)).forEach(b => {
+      if (b.result || String(b.marketType).indexOf('c_') === 0) return;
       const k = b.fixtureId + '|' + b.marketType; if (stuckSeen[k]) return; stuckSeen[k] = 1;
       (stuckByFix[b.fixtureId] = stuckByFix[b.fixtureId] || []).push(b.marketType);
     });
+    // Kèo clone CHƯA chấm: lấy kết quả sảnh nguồn làm gợi ý (admin xác nhận/sửa khi chấm).
+    for (const fx of Object.keys(cmByFix)) for (const cm of cmByFix[fx]) {
+      if (!cm.srcCid || (cm.result != null && cm.result !== '')) continue;
+      const src = await env.DB.prepare('SELECT result FROM CustomMarkets WHERE poolId=? AND fixtureId=? AND cid=?')
+        .bind(cm.srcPool, fx, cm.srcCid).first();
+      cm.srcResult = src ? (src.result || '') : '';
+    }
   }
   const rAt = await prop(env, 'resetAt_' + poolId);
   const resetAt = rAt ? new Date(rAt).getTime() : 0;
-  const matches = (await readAll(env, 'Matches')).filter(mt => {
-    if (mt.poolId !== poolId || String(mt.included).toUpperCase() !== 'Y') return false;
+  const matches = (await findRows(env, 'Matches', 'poolId', poolId)).filter(mt => {
+    if (String(mt.included).toUpperCase() !== 'Y') return false;
     if (new Date(mt.kickoff).getTime() <= resetAt) return false;
     return new Date(mt.kickoff) <= now || betFixtures[mt.fixtureId];
   });
@@ -163,7 +173,7 @@ export async function getHistory(env, token, poolId){
 // Bảng vàng: các mùa đã kết thúc, mới nhất trước. champion = hạng 1, top = 3 hạng đầu.
 export async function getSeasons(env, token, poolId){
   await authUser(env, token);
-  return (await readAll(env, 'Seasons')).filter(s => s.poolId === poolId).map(s => {
+  return (await findRows(env, 'Seasons', 'poolId', poolId)).map(s => {
     let st = []; try { st = JSON.parse(s.standings || '[]'); } catch(e){}
     return { name: s.name, endedAt: s.endedAt, champion: st[0] || null, top: st.slice(0, 3) };
   }).sort((a, b) => new Date(b.endedAt) - new Date(a.endedAt));
@@ -171,16 +181,16 @@ export async function getSeasons(env, token, poolId){
 
 export async function getCrowd(env, token, poolId, fixtureId){
   const user = await authUser(env, token);
-  const mt = (await readAll(env, 'Matches')).filter(m => m.poolId === poolId && String(m.fixtureId) === String(fixtureId))[0];
+  const mt = (await findRows(env, 'Matches', 'poolId', poolId)).filter(m => String(m.fixtureId) === String(fixtureId))[0];
   if (!mt) throw new Error('Trận không tồn tại');
   const open = new Date(mt.kickoff) > new Date();
-  const bets = (await readAll(env, 'Bets')).filter(b => b.poolId === poolId && String(b.fixtureId) === String(fixtureId));
+  const bets = (await findRows(env, 'Bets', 'poolId', poolId)).filter(b => String(b.fixtureId) === String(fixtureId));
   const iBet = bets.some(b => b.user === user);
   if (open && !iBet) return { locked: true };
 
   const poolRow = await findRow(env, 'Pools', 'poolId', poolId);
   const bk = (poolRow && poolRow.bookmaker) ? poolRow.bookmaker : C.DEFAULT_BOOKMAKER;
-  const oddsRow = (await readAll(env, 'Odds')).filter(o => o.bookmaker === bk && o.fixtureId === fixtureId)[0];
+  const oddsRow = (await findRows(env, 'Odds', 'bookmaker', bk)).filter(o => o.fixtureId === fixtureId)[0];
   const labels = C.crowdLabels(oddsRow ? oddsRow.oddsJson : null, mt.team1, mt.team2);
   const lbl = async b => (await C.betLabel(env, b, mt.team1, mt.team2)) || labels[b.marketType + '_' + b.outcomeId] || ('#' + b.outcomeId);
 

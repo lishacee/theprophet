@@ -22,8 +22,10 @@ CREATE INDEX IF NOT EXISTS ix_pools_status ON Pools(status);
 CREATE TABLE IF NOT EXISTS CustomMarkets (
   poolId TEXT, fixtureId TEXT, cid TEXT,
   name TEXT, outcomesJson TEXT, result TEXT, settledAt TEXT, createdAt TEXT, locked TEXT,
+  srcPool TEXT, srcCid TEXT,               -- provenance: kèo này clone từ (srcPool, srcCid); rỗng = tạo tay
   PRIMARY KEY (poolId, fixtureId, cid)
 );
+CREATE INDEX IF NOT EXISTS ix_cm_fixture ON CustomMarkets(fixtureId);
 
 CREATE TABLE IF NOT EXISTS Memberships (
   poolId TEXT, user TEXT,

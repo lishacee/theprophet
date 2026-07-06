@@ -2,7 +2,7 @@
 // LockService gone; membership deltas use atomic +=. Bulk deletes use DELETE ... WHERE
 // (no rowIndex bookkeeping). requireAdmin gates every entry point.
 import { requireAdmin, uuid } from './auth.js';
-import { readAll, findRow, appendRow, updateRow, deleteRow, cacheBust, setProp, cacheGet } from './db.js';
+import { readAll, findRow, findRows, appendRow, updateRow, deleteRow, cacheBust, setProp, cacheGet } from './db.js';
 import { refreshOdds, importPoolFixtures } from './odds.js';
 import { apiGet } from './api.js';
 import * as C from './core.js';
@@ -80,6 +80,42 @@ export async function adminDeleteMarket(env, token, poolId, fixtureId, cid){
   await env.DB.prepare(`DELETE FROM CustomMarkets WHERE poolId=? AND fixtureId=? AND cid=?`).bind(poolId, fixtureId, cid).run();
   await cacheBust(env, await C.mtKeys(env, poolId, u));
   return { ok: true };
+}
+
+// Liệt kê kèo custom ở SẢNH KHÁC cho cùng trận, để clone sang sảnh này. Mỗi kèo kèm cờ
+// `already` = sảnh này đã clone đúng nguồn đó (UI làm mờ, nhưng vẫn cho override — guard mềm).
+export async function adminListClonableMarkets(env, token, poolId, fixtureId){
+  await requireAdmin(env, token);
+  const rows = await findRows(env, 'CustomMarkets', 'fixtureId', fixtureId);
+  const clonedSrc = new Set(rows.filter(c => c.poolId === poolId && c.srcPool && c.srcCid).map(c => c.srcPool + '|' + c.srcCid));
+  const names = {}; (await readAll(env, 'Pools')).forEach(p => names[p.poolId] = p.name);
+  return rows.filter(c => c.poolId !== poolId).map(c => {
+    let outcomes = []; try { outcomes = JSON.parse(c.outcomesJson || '[]'); } catch(e){}
+    return { srcPool: c.poolId, srcPoolName: names[c.poolId] || c.poolId, srcCid: c.cid,
+      name: c.name, outcomes, result: c.result || '', already: clonedSrc.has(c.poolId + '|' + c.cid) };
+  });
+}
+
+// Clone (snapshot) các kèo đã chọn vào sảnh này. Copy name+outcomes NGUYÊN XI (giữ oid để sau
+// map kết quả chấm), cid mới, reset result/locked, ghi con trỏ nguồn. Không hard-reject nguồn
+// đã clone — guard mềm nằm ở UI. sources: [{srcPool, srcCid}].
+export async function adminCloneMarkets(env, token, poolId, fixtureId, sources){
+  await requireAdmin(env, token);
+  if (!Array.isArray(sources) || !sources.length) throw new Error('Chưa chọn kèo nào');
+  const mt = (await findRows(env, 'Matches', 'poolId', poolId)).filter(x => x.fixtureId === fixtureId)[0];
+  if (!mt) throw new Error('Sảnh này chưa có trận đó');
+  let n = 0;
+  for (const s of sources) {
+    const src = await env.DB.prepare('SELECT * FROM CustomMarkets WHERE poolId=? AND fixtureId=? AND cid=?')
+      .bind(s.srcPool, fixtureId, s.srcCid).first();
+    if (!src) continue;
+    const cid = uuid().slice(0, 8);
+    await appendRow(env, 'CustomMarkets', [poolId, fixtureId, cid, src.name, src.outcomesJson, '', '', new Date().toISOString(), '', s.srcPool, s.srcCid]);
+    n++;
+  }
+  if (!n) throw new Error('Không tìm thấy kèo nguồn nào');
+  await cacheBust(env, await C.mtKeys(env, poolId, null));
+  return { ok: true, n };
 }
 
 // Chấm/chấm lại kèo custom (delta payout -> không double-credit). winningOids: mảng/chuỗi các cửa

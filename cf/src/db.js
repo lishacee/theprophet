@@ -7,7 +7,7 @@
 export const COLS = {
   Users: ['username','userLower','passHash','salt','nickname','token','tokenExp','createdAt'],
   Pools: ['poolId','name','tournamentIds','dateFrom','dateTo','status','bookmaker','pointsPerMatch','startMultiplier','noshowPenalty','requirePassword','joinPassword','extraMarkets'],
-  CustomMarkets: ['poolId','fixtureId','cid','name','outcomesJson','result','settledAt','createdAt','locked'],
+  CustomMarkets: ['poolId','fixtureId','cid','name','outcomesJson','result','settledAt','createdAt','locked','srcPool','srcCid'],
   Memberships: ['poolId','user','joinAt','startingPoints','currentPoints','pinnedBadges','blocked'],
   Matches: ['poolId','fixtureId','tournamentId','team1','team2','kickoff','statusId','ouLine','ouMarketId','included','settled','penaltyApplied','lastFetchAt','score','ahMarketId'],
   Odds: ['bookmaker','fixtureId','oddsJson','updatedAt','prevOddsJson','lastFetchAt'],

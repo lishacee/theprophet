@@ -241,8 +241,9 @@ export async function nicknameOf(env, username){
 // Bust getMatches cache for every member of a pool (+ the actor, often a non-member admin).
 export async function mtKeys(env, poolId, actor){
   const mems = await findRows(env, 'Memberships', 'poolId', poolId);
-  const keys = mems.map(m => 'mt_' + poolId + '_' + m.user);
-  if (actor) keys.push('mt_' + poolId + '_' + actor);
+  const keys = [];
+  mems.forEach(m => keys.push('mt_' + poolId + '_' + m.user, 'hist_' + poolId + '_' + m.user));
+  if (actor) keys.push('mt_' + poolId + '_' + actor, 'hist_' + poolId + '_' + actor);
   return keys;
 }
 
