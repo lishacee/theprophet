@@ -42,6 +42,7 @@ const REGISTRY = {
   adminResetPool:      (env, t, id)             => admin.adminResetPool(env, t, id),
   adminDeletePool:     (env, t, id)             => admin.adminDeletePool(env, t, id),
   adminRefreshOdds:    (env, t)                 => admin.adminRefreshOdds(env, t),
+  adminReloadMatches:  (env, t)                 => admin.adminReloadMatches(env, t),
   adminImport:         (env, t, id)             => admin.adminImport(env, t, id),
   adminListMatches:    (env, t, id)             => admin.adminListMatches(env, t, id),
   adminToggleMatch:    (env, t, id, fx, inc)    => admin.adminToggleMatch(env, t, id, fx, inc),

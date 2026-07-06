@@ -929,7 +929,7 @@ function applyMatches(res){
   if(res.currentPoints!=null) setPts(res.currentPoints);
   var ms=res.matches; MATCHES=ms;
   if(el('stakebox')) return; // đang mở phiếu cược -> đừng vẽ lại kẻo mất ô nhập của user
-  var adminBtn=(ME&&ME.isAdmin)?'<button class="btn ghost sm" onclick="reloadOdds()">🔄 Reload odds</button>':'';
+  var adminBtn=(ME&&ME.isAdmin)?'<button class="btn ghost sm" onclick="reloadOdds()">🔄 Reload odds</button><button class="btn ghost sm" onclick="reloadMatches()">🕒 Reload giờ trận</button>':'';
   var head='<div class="card row headcard" style="align-items:center"><div style="display:flex;align-items:center;gap:13px"><div style="width:46px;height:46px;border-radius:14px;background:var(--accent-soft);border:1px solid var(--accent-bd);display:flex;align-items:center;justify-content:center;font-size:23px;flex:none">👛</div><div><div class="muted" style="font-size:10.5px;text-transform:uppercase;letter-spacing:1.2px;font-weight:700">Ví điểm của bạn</div><div class="pts" style="font-size:27px;line-height:1.15">'+n2(CURPOOLPTS)+' <span style="font-size:15px">đ</span></div></div></div>'+adminBtn+'</div>';
   if(!ms.length){ el('view-bet').innerHTML=head+'<div class="card center muted" style="padding:24px">📭<div style="margin-top:6px">Chưa có trận nào trong 48 giờ tới.</div></div>'; return; }
   el('view-bet').innerHTML=head+'<div class="muted" style="margin:6px 2px 12px;font-weight:700;letter-spacing:.3px">CHỌN KÈO — '+ms.length+' TRẬN</div>'+ms.map(matchCard).join('');
@@ -1157,6 +1157,10 @@ function pick(fixtureId,mtype,oid,price){
 function reloadOdds(){
   msg('Đang tải lại odds...', true);
   srun('adminRefreshOdds', TOKEN).then(function(){ msg('Đã reload odds ✓', true); loadMatches(true); }).catch(function(e){ msg(e.message||e); });
+}
+function reloadMatches(){
+  msg('Đang tải lại lịch trận...', true);
+  srun('adminReloadMatches', TOKEN).then(function(){ msg('Đã cập nhật giờ trận ✓', true); loadMatches(true); }).catch(function(e){ msg(e.message||e); });
 }
 function openStake(){
   var old=el('stakebox'); if(old) old.remove();

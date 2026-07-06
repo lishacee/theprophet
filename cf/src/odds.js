@@ -105,11 +105,11 @@ export async function refreshOdds(env, force){
   }
 }
 
-export async function importPoolFixtures(env, poolId){
+export async function importPoolFixtures(env, poolId, fromLookbackH){
   const p = await findRow(env, 'Pools', 'poolId', poolId);
   if (!p) throw new Error('Pool không tồn tại: ' + poolId);
   const tids = String(p.tournamentIds).split(',').map(s => s.trim()).filter(Boolean);
-  const from = new Date().toISOString();
+  const from = new Date(Date.now() - (fromLookbackH || 0) * 3600000).toISOString();
   const toD = new Date(); toD.setMonth(toD.getMonth() + 18); const to = toD.toISOString();
   let maxKick = null;
 
@@ -134,6 +134,7 @@ export async function importPoolFixtures(env, poolId){
         }
         continue;
       }
+      if (kickoff && kickoff.getTime() <= Date.now()) continue; // lookback kéo cả trận đã qua giờ -> đừng thêm mới (tránh phạt no-show oan)
       // ouLine & ouMarketId để TRỐNG -> tự lấy vạch chính khi fetch odds.
       await appendRow(env, 'Matches', [poolId, f.fixtureId, f.tournamentId, f.participant1Name, f.participant2Name, kickoff ? kickoff.toISOString() : '', f.statusId, '', '', 'Y', '', '', '']);
       existing[f.fixtureId] = { _new: true };

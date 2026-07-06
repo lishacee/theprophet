@@ -275,6 +275,17 @@ export async function adminDeletePool(env, token, poolId){
 
 export async function adminRefreshOdds(env, token){ await requireAdmin(env, token); await refreshOdds(env, true); return { ok: true }; }
 
+// Đồng bộ giờ/tên trận từ OddsPapi cho mọi pool đang mở. Lookback 48h để bắt cả trận vừa dời qua giờ cũ.
+export async function adminReloadMatches(env, token){
+  await requireAdmin(env, token);
+  const pools = (await readAll(env, 'Pools')).filter(p => p.status === 'open');
+  for (const p of pools) {
+    try { await importPoolFixtures(env, p.poolId, 48); } catch (e) { console.error('reload matches ' + p.poolId + ': ' + e.message); }
+    await cacheBust(env, await C.mtKeys(env, p.poolId, null));
+  }
+  return { ok: true, pools: pools.length };
+}
+
 export async function adminImport(env, token, poolId){
   await requireAdmin(env, token);
   const before = (await readAll(env, 'Matches')).filter(m => m.poolId === poolId).length;
