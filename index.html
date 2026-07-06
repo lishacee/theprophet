@@ -14,11 +14,11 @@
       --page-bg: radial-gradient(900px 420px at 50% -180px, rgba(120,220,150,.10), transparent 65%), #0c1611;
       --bg:#0c1611; --card:#14241b; --card2:#1b2d23;
       --line:rgba(255,255,255,.07); --line2:rgba(255,255,255,.12);
-      --txt:#e9f7ee; --mut:#8ba89a; --mut2:#5f7669;
+      --txt:#e9f7ee; --mut:#8ba89a; --mut2:#809a8a;
       --lime:#9fe85f; --accent-ink:#0a160e;
       --accent-soft:rgba(159,232,95,.13); --accent-bd:rgba(159,232,95,.32); --accent-glow:rgba(159,232,95,.18); --fill:rgba(159,232,95,.20);
       --cyan:#52c7e6; --line-soft:rgba(82,199,230,.14); --line-bd:rgba(82,199,230,.42);
-      --win:#84e07a; --win-bd:rgba(132,224,122,.4); --lose:#ff6b78; --gold:#f2c43d;
+      --win:#84e07a; --win-bd:rgba(132,224,122,.4); --lose:#ff6b78; --lose-bd:rgba(255,107,120,.4); --gold:#f2c43d;
       --win-soft:rgba(132,224,122,.16); --win-tint:rgba(132,224,122,.07); --win-flash:rgba(132,224,122,.34);
       --lose-soft:rgba(255,107,120,.16); --lose-tint:rgba(255,107,120,.06); --lose-flash:rgba(255,107,120,.34);
       --inputbg:#0c1812; --navbg:rgba(13,28,20,.94);
@@ -33,13 +33,13 @@
       --page-bg: radial-gradient(900px 460px at 50% -160px, #ece0ff, transparent 62%), #ddd0ec;
       --bg:#ddd0ec; --card:#ffffff; --card2:#f4eefc;
       --line:rgba(90,50,150,.10); --line2:rgba(90,50,150,.16);
-      --txt:#281d3d; --mut:#7d7596; --mut2:#a79fbd;
+      --txt:#281d3d; --mut:#5f577a; --mut2:#726b8a;
       --lime:#7c3aed; --accent-ink:#ffffff;
       --accent-soft:#f1e9ff; --accent-bd:rgba(124,58,237,.28); --accent-glow:rgba(124,58,237,.2); --fill:rgba(124,58,237,.18);
       --cyan:#0e95b0; --line-soft:rgba(14,149,176,.12); --line-bd:rgba(14,149,176,.4);
-      --win:#16a34a; --win-bd:rgba(22,163,74,.4); --lose:#e23b5a; --gold:#e8920c;
-      --win-soft:rgba(22,163,74,.14); --win-tint:rgba(22,163,74,.07); --win-flash:rgba(22,163,74,.26);
-      --lose-soft:rgba(226,59,90,.13); --lose-tint:rgba(226,59,90,.06); --lose-flash:rgba(226,59,90,.26);
+      --win:#15803d; --win-bd:rgba(21,128,61,.42); --lose:#d13350; --lose-bd:rgba(209,51,80,.42); --gold:#b0600a;
+      --win-soft:rgba(21,128,61,.14); --win-tint:rgba(21,128,61,.07); --win-flash:rgba(21,128,61,.26);
+      --lose-soft:rgba(209,51,80,.13); --lose-tint:rgba(209,51,80,.06); --lose-flash:rgba(209,51,80,.26);
       --inputbg:#f5f0fc; --navbg:rgba(255,255,255,.92);
       --headcard:linear-gradient(135deg,#f3e9ff,#fbf7ff);
       --topbar-bg:linear-gradient(135deg,#7c3aed,#9b5cf6);
@@ -57,7 +57,7 @@
     .wrap{ max-width:540px; margin:0 auto; padding:0 14px 120px; }
 
     /* ---------- toast ---------- */
-    #msg{ position:fixed; left:50%; top:14px; transform:translate(-50%,-140%); z-index:200;
+    #msg{ position:fixed; left:50%; top:14px; transform:translate(-50%,-140%); z-index:260;
       max-width:480px; width:calc(100% - 28px); padding:12px 16px; border-radius:14px; font-size:13.5px; font-weight:600;
       transition:transform .35s cubic-bezier(.2,.9,.3,1.2); box-shadow:0 14px 40px rgba(0,0,0,.3); }
     #msg.show{ transform:translate(-50%,0); }
@@ -105,8 +105,8 @@
     .ptspill .n{ font-weight:900; font-size:20px; color:var(--topbar-accent); line-height:1; }
     .ptspill .l{ font-size:10.5px; color:var(--topbar-mut); text-transform:uppercase; letter-spacing:1px; }
     .badges{ display:flex; gap:8px; margin-top:13px; flex-wrap:wrap; }
-    .iconbtn{ background:var(--topbar-btn); border:1px solid var(--topbar-line); color:var(--topbar-txt); width:34px; height:34px;
-      border-radius:10px; display:inline-flex; align-items:center; justify-content:center; font-size:15px; }
+    .iconbtn{ background:var(--topbar-btn); border:1px solid var(--topbar-line); color:var(--topbar-txt); width:40px; height:40px;
+      border-radius:11px; display:inline-flex; align-items:center; justify-content:center; font-size:16px; }
     /* account menu rows (opened from ☰) */
     .menurow{ display:flex; align-items:center; gap:13px; width:100%; padding:14px 14px; margin:0 0 9px; min-height:52px;
       background:var(--card2, var(--card)); border:1px solid var(--line); border-radius:14px; color:var(--ink);
@@ -163,7 +163,7 @@
       padding:4px 10px; border-radius:999px; }
 
     .mkt{ display:flex; align-items:center; gap:9px; margin:15px 0 9px; padding-top:14px; border-top:1px solid var(--line); font-size:11px; font-weight:800;
-      color:var(--mut2); text-transform:uppercase; letter-spacing:1.2px; }
+      color:var(--mut2); text-transform:uppercase; letter-spacing:1px; }
     .card.mc-closed{ opacity:.6; }
     .card.mc-closed .teams{ filter:grayscale(.3); }
     .mc-body.collapsed{ display:none; }
@@ -210,7 +210,8 @@
     .ocrow .oc-odd{ width:88px; flex:none; }
     .ocrow .oc-del{ flex:none; background:var(--card2); color:var(--mut); border:1px solid var(--line2); border-radius:9px; width:36px; height:40px; font-size:14px; cursor:pointer; }
     .ocrow .oc-del:hover{ color:var(--lose); border-color:rgba(255,107,120,.4); }
-    .oc-add{ background:transparent; color:var(--cyan); border:1px dashed var(--line-bd); border-radius:9px; padding:8px; width:100%; margin-top:9px; font-weight:700; font-size:12px; cursor:pointer; }
+    .oc-add{ background:transparent; color:var(--mut); border:1px dashed var(--line2); border-radius:9px; padding:8px; width:100%; margin-top:9px; font-weight:700; font-size:12px; cursor:pointer; transition:.14s; }
+    .oc-add:hover{ color:var(--txt); border-color:var(--cyan); }
 
     /* ---------- kèo tự ra: vòng đời + chấm kết quả ---------- */
     .cm-head{ flex-wrap:wrap; row-gap:6px; }
@@ -376,8 +377,8 @@
     .hcard{ position:relative; overflow:hidden; cursor:pointer; transition:border-color .2s; }
     .hcard.win{ border-color:var(--win-bd); background:linear-gradient(100deg, var(--win-tint), transparent 60%), var(--card); }
     .hcard.lose{ background:linear-gradient(100deg, var(--lose-tint), transparent 60%), var(--card); }
-    .hcard.win::before{ content:""; position:absolute; left:0; top:0; bottom:0; width:4px; background:var(--win); }
-    .hcard.lose::before{ content:""; position:absolute; left:0; top:0; bottom:0; width:4px; background:var(--lose); }
+    .hcard.win{ border-color:var(--win-bd); }
+    .hcard.lose{ border-color:var(--lose-bd); }
     .hicon{ width:23px; height:23px; border-radius:7px; display:inline-flex; align-items:center; justify-content:center; font-size:13px; font-weight:900; flex:none; }
     .hbadge{ display:inline-flex; align-items:center; font-weight:900; font-size:14.5px; padding:3px 11px; border-radius:999px; white-space:nowrap; }
     .score{ background:var(--inputbg); border:1px solid var(--line2); border-radius:8px; padding:1px 9px; font-weight:900; }
@@ -394,7 +395,7 @@
     /* ---------- leaderboard ---------- */
     .lbrow{ display:flex; align-items:center; gap:11px; padding:11px 4px; border-bottom:1px solid var(--line); transition:background .15s; }
     .lbrow:last-child{ border-bottom:0; }
-    .lbrow.me{ background:var(--accent-soft); border-radius:12px; border-bottom:1px solid transparent; padding-left:9px; padding-right:9px; box-shadow:inset 3px 0 0 var(--lime); }
+    .lbrow.me{ background:var(--accent-soft); border-radius:12px; border:1px solid var(--accent-bd); padding-left:9px; padding-right:9px; }
     .rank{ width:28px; height:28px; border-radius:9px; display:flex; align-items:center; justify-content:center; font-weight:900; font-size:13.5px;
       background:var(--inputbg); color:var(--mut); border:1px solid var(--line); flex:none; }
     .lbav{ width:30px; height:30px; border-radius:50%; flex:none; display:flex; align-items:center; justify-content:center; font-weight:800; font-size:12px; color:#fff; text-shadow:0 1px 2px rgba(0,0,0,.3); }
@@ -451,7 +452,7 @@
     .tour input{ width:18px; height:18px; flex:none; accent-color:var(--lime); }
     /* ---------- admin ---------- */
     .asec{ display:flex; align-items:center; gap:8px; font-size:11px; font-weight:800; color:var(--mut2);
-      text-transform:uppercase; letter-spacing:1.2px; margin:2px 0 12px; }
+      text-transform:uppercase; letter-spacing:1px; margin:2px 0 12px; }
     .asec .an{ width:20px; height:20px; border-radius:7px; background:var(--accent-soft); border:1px solid var(--accent-bd);
       color:var(--lime); display:flex; align-items:center; justify-content:center; font-size:11px; flex:none; }
     .asec .aln{ flex:1; height:1px; background:var(--line); }
@@ -501,11 +502,26 @@
       background:linear-gradient(90deg,transparent,var(--lime),transparent); animation:netslide 1s linear infinite; }
     @keyframes netslide{ 0%{ left:-40%; } 100%{ left:100%; } }
     a.link{ color:var(--lime); cursor:pointer; font-weight:700; }
+
+    /* keyboard focus: visible ring on every interactive element (buttons, inputs, role=button toggles) */
+    :focus-visible{ outline:2px solid var(--lime); outline-offset:2px; }
+    button:focus-visible, [role="button"]:focus-visible{ outline:2px solid var(--lime); outline-offset:2px; border-radius:12px; }
+    input:focus-visible, select:focus-visible{ outline:none; } /* inputs already show a lime ring via box-shadow */
+    [role="button"]{ cursor:pointer; }
+
+    /* long free-text (team/pool/nickname/custom-market names) must wrap, never overflow the card */
+    .teams,.lbname,.cm-name,.sq-name,.sq-match,.slip-sel,.pn{ overflow-wrap:break-word; }
+
+    /* respect prefers-reduced-motion: kill looping + entrance animations, keep instant state changes */
+    @media (prefers-reduced-motion: reduce){
+      *,*::before,*::after{ animation-duration:.01ms !important; animation-iteration-count:1 !important;
+        transition-duration:.01ms !important; scroll-behavior:auto !important; }
+    }
   </style>
 </head>
 <body>
 <div id="netbar"></div>
-<div id="msg" class="msg"></div>
+<div id="msg" class="msg" role="status" aria-live="polite" aria-atomic="true"></div>
 <canvas id="fxcanvas" class="hidden"></canvas>
 
 <div class="wrap">
@@ -553,14 +569,14 @@
       <div class="row">
         <div class="brand">🦝🎩 PROPHET<span class="dot">101</span></div>
         <div style="display:flex; align-items:center; gap:9px">
-          <button class="iconbtn" title="Luật chơi" onclick="showRules()">📖</button>
-          <button class="iconbtn" title="Đổi giao diện" onclick="cycleTheme()">🎨</button>
-          <button class="iconbtn" id="acctbtn" title="Tài khoản" onclick="openMenu()">👤</button>
+          <button class="iconbtn" title="Luật chơi" aria-label="Luật chơi" onclick="showRules()">📖</button>
+          <button class="iconbtn" title="Đổi giao diện" aria-label="Đổi giao diện" onclick="cycleTheme()">🎨</button>
+          <button class="iconbtn" id="acctbtn" title="Tài khoản" aria-label="Tài khoản" onclick="openMenu()">👤</button>
         </div>
       </div>
       <div class="badges">
         <span class="chip glass" id="hdr-hello">Xin chào, <b id="me" style="margin-left:3px"></b></span>
-        <span class="poolsel hidden" id="hdr-pool" onclick="show('pools')" title="Đổi sảnh"></span>
+        <span class="poolsel hidden" id="hdr-pool" role="button" tabindex="0" onclick="show('pools')" title="Đổi sảnh"></span>
         <span class="chip lime hidden" id="hdr-streak"></span>
         <span class="chip gold hidden" id="hdr-rank"></span>
       </div>
@@ -621,11 +637,15 @@ Object.assign(TEAM_ISO, {
   // châu Đại Dương
   'fiji':'fj','new caledonia':'nc','tahiti':'pf','solomon islands':'sb','vanuatu':'vu','papua new guinea':'pg'
 });
+function teamAbbr(name){
+  return String(name).replace(/[^A-Za-z ]/g,'').split(/\s+/).map(function(w){return w[0]||'';}).join('').slice(0,3).toUpperCase()||'?';
+}
+// Flag CDN can fail (offline, blocked, unmapped ISO) — swap the broken <img> for the abbreviation badge.
+function flagFallback(img){ img.onerror=null; var s=document.createElement('span'); s.className='ab'; s.textContent=img.getAttribute('data-ab')||'?'; if(img.parentNode) img.parentNode.replaceChild(s,img); }
 function teamFlag(name){
-  var iso=TEAM_ISO[String(name).toLowerCase().trim()];
-  if(iso) return '<img class="flag" src="https://flagcdn.com/32x24/'+iso+'.png" alt="">';
-  var ab=String(name).replace(/[^A-Za-z ]/g,'').split(/\s+/).map(function(w){return w[0]||'';}).join('').slice(0,3).toUpperCase()||'?';
-  return '<span class="ab">'+ab+'</span>';
+  var ab=teamAbbr(name), iso=TEAM_ISO[String(name).toLowerCase().trim()];
+  if(iso) return '<img class="flag" src="https://flagcdn.com/32x24/'+iso+'.png" alt="" loading="lazy" data-ab="'+esc(ab)+'" onerror="flagFallback(this)">';
+  return '<span class="ab">'+esc(ab)+'</span>';
 }
 
 // Thanh loading toàn cục: mọi action (sheet hay API) đều qua srun -> tự bật/tắt khi có request bay.
@@ -645,10 +665,13 @@ var MOCK = /[?&]mock=1/.test(location.search) || /claude|usercontent/i.test(loca
 function srun(fn){
   var a=[].slice.call(arguments,1); netStart();
   if(MOCK) return new Promise(function(res){ res(mockRun(fn,a)); }).then(function(d){ netEnd(); return d; }, function(e){ netEnd(); throw e; });
-  return fetch(WORKER_URL, { method:'POST', headers:{'Content-Type':'text/plain'}, body:JSON.stringify({fn:fn, args:a}) })
+  // Abort a hung request after 20s so slow/dead networks surface an error instead of spinning forever.
+  var ctl=('AbortController' in window)?new AbortController():null;
+  var to=ctl?setTimeout(function(){ ctl.abort(); },20000):null;
+  return fetch(WORKER_URL, { method:'POST', headers:{'Content-Type':'text/plain'}, body:JSON.stringify({fn:fn, args:a}), signal:ctl?ctl.signal:undefined })
     .then(function(r){ return r.json(); })
-    .then(function(j){ netEnd(); if(j && j.ok) return j.data; throw new Error((j && j.error) || 'Lỗi máy chủ'); },
-          function(e){ netEnd(); throw e; });
+    .then(function(j){ if(to)clearTimeout(to); netEnd(); if(j && j.ok) return j.data; throw new Error((j && j.error) || 'Lỗi máy chủ'); },
+          function(e){ if(to)clearTimeout(to); netEnd(); throw (e && e.name==='AbortError') ? new Error('Mạng chậm hoặc mất kết nối — thử lại nhé') : e; });
 }
 // Canned data so every screen renders without a backend. Display-only: mutations (placeBet, admin*)
 // resolve as no-op success. Shapes mirror the Worker's responses.
@@ -736,12 +759,32 @@ function mockData(){
 function busy(id, txt){ var b=el(id); if(b){ if(b._t==null) b._t=b.innerHTML; b.disabled=true; b.innerHTML=txt; } return b; }
 function unbusy(b){ if(b){ b.disabled=false; if(b._t!=null){ b.innerHTML=b._t; b._t=null; } } }
 function el(id){ return document.getElementById(id); }
+// Keyboard access: Enter/Space activate role=button toggles; Escape closes any open modal.
+document.addEventListener('keydown', function(e){
+  if(e.key==='Escape'){ if(el('modal')) closeModal(); return; }
+  if(e.key==='Enter' || e.key===' ' || e.key==='Spacebar'){
+    var t=document.activeElement;
+    if(t && t.getAttribute && t.getAttribute('role')==='button'){ e.preventDefault(); t.click(); }
+  }
+});
 
 // ===== Stale-while-revalidate cache (localStorage) =====
 // Paint last-known data instantly, then refetch in background and repaint+persist. Cache is ONLY a
 // first-paint shortcut — every open still hits the server unless data was written <SWR_TTL ago
 // (dedupes getPoolView+show and rapid tab flips). Never shows data older than the next refetch.
 var SWR_TTL=8000;
+// Inline error state with retry — replaces a stuck skeleton when a load fails and no cache exists.
+var VIEW_OF={matches:'bet',hist:'hist',lb:'lb',pools:'pools'};
+var RETRY_OF={matches:'loadMatches(true)',hist:'loadHist(true)',lb:'loadLb()',pools:'loadPools()'};
+function errCard(viewId, retry){
+  var v=el('view-'+viewId); if(!v) return;
+  SEEN[viewId]=0; // let the retry re-show a skeleton
+  v.innerHTML='<div class="card center" style="padding:32px 18px">'+
+    '<div style="font-size:34px;line-height:1">📡</div>'+
+    '<div style="font-weight:800;font-size:15px;margin-top:10px">Không tải được dữ liệu</div>'+
+    '<div class="muted" style="font-size:13px;margin-top:5px;line-height:1.5">Kiểm tra kết nối mạng rồi thử lại nhé.</div>'+
+    (retry?'<button class="btn sm" style="margin-top:14px" onclick="'+retry+'">↻ Thử lại</button>':'')+'</div>';
+}
 function lsKey(kind){ return 'pv_'+kind+'_'+CURPOOL; }
 function lsGet(kind){ try{ return JSON.parse(localStorage.getItem(lsKey(kind))||'null'); }catch(e){ return null; } }
 function lsSet(kind,val){ try{ localStorage.setItem(lsKey(kind), JSON.stringify({t:Date.now(),v:val})); }catch(e){} }
@@ -752,7 +795,7 @@ function swr(kind, fetchFn, apply, skel, force){
   if(rec && rec.v!=null){ apply(rec.v); if(Date.now()-rec.t < SWR_TTL) return; } // fresh -> skip refetch
   else if(skel) skel();
   // Drop a stale response if the user switched pools mid-flight — else pool B's data lands under pool A.
-  fetchFn().then(function(d){ if(CURPOOL!==pool) return; lsSet(kind,d); apply(d); }).catch(function(e){ if(!rec) msg(e.message||e); });
+  fetchFn().then(function(d){ if(CURPOOL!==pool) return; lsSet(kind,d); apply(d); }).catch(function(e){ if(CURPOOL!==pool) return; if(!rec){ errCard(VIEW_OF[kind]||kind, RETRY_OF[kind]); } msg(e.message||e); });
 }
 
 function msg(text, ok){ var m=el('msg'); m.textContent=text; m.className='msg '+(ok?'ok':'err')+' show'; clearTimeout(msg._t); msg._t=setTimeout(function(){m.classList.remove('show')}, ok?3800:5500); }
@@ -795,7 +838,7 @@ function renderAcctBtn(){
 }
 function openMenu(){
   var head='<div class="row" style="margin-bottom:14px"><div style="font-weight:900;font-size:18px">👤 Tài khoản</div>'+
-    '<button class="iconbtn" onclick="closeModal()">✕</button></div>';
+    '<button class="iconbtn" aria-label="Đóng" onclick="closeModal()">✕</button></div>';
   var greet='<div class="muted" style="font-size:12.5px;margin:-6px 0 12px">Đang đăng nhập: <b style="color:var(--ink)">'+esc(ME&&ME.nickname||'')+'</b></div>';
   function item(icon,label,fn,danger){
     return '<button class="menurow'+(danger?' danger':'')+'" onclick="closeModal();'+fn+'">'+
@@ -807,14 +850,31 @@ function openMenu(){
     item('⎋','Đăng xuất','logout()',true);
   showModal(head+body);
 }
+// Themed replacement for window.prompt — keeps the modal vocabulary consistent (and hides passwords).
+function promptModal(title, opts, onOk){
+  opts=opts||{};
+  var head='<div class="row" style="margin-bottom:12px"><div style="font-weight:900;font-size:17px">'+esc(title)+'</div><button class="iconbtn" aria-label="Đóng" onclick="closeModal()">✕</button></div>';
+  var body=(opts.hint?'<div class="muted" style="font-size:12.5px;line-height:1.5;margin-bottom:2px">'+esc(opts.hint)+'</div>':'')+
+    '<label class="mfield"><span>'+esc(opts.label||'')+'</span>'+
+    '<input id="pm-input" class="minput" type="'+(opts.type||'text')+'"'+(opts.maxlength?' maxlength="'+opts.maxlength+'"':'')+
+      ' placeholder="'+esc(opts.placeholder||'')+'" value="'+esc(opts.value||'')+'"></label>'+
+    '<button id="pm-ok" class="btn block" style="margin-top:16px">'+esc(opts.ok||'Xác nhận')+'</button>';
+  showModal(head+body);
+  var i=el('pm-input'); if(i){ i.focus(); if(i.select) i.select(); }
+  function go(){ var v=el('pm-input')?el('pm-input').value:''; closeModal(); onOk(v); }
+  if(el('pm-ok')) el('pm-ok').onclick=go;
+  if(i) i.addEventListener('keydown', function(e){ if(e.key==='Enter'){ e.preventDefault(); go(); } });
+}
 function editNick(){
-  var n=prompt('Biệt danh mới:', ME.nickname); if(!n) return;
-  srun('setNickname', TOKEN, n).then(function(r){ ME.nickname=r.nickname; el('me').textContent=r.nickname; renderAcctBtn(); msg('Đã đổi biệt danh ✨', true); }).catch(function(e){ msg(e.message||e); });
+  promptModal('Đổi biệt danh', {label:'Biệt danh mới', value:ME.nickname, maxlength:20, ok:'Lưu'}, function(n){
+    n=(n||'').trim(); if(!n) return;
+    srun('setNickname', TOKEN, n).then(function(r){ ME.nickname=r.nickname; el('me').textContent=r.nickname; renderAcctBtn(); msg('Đã đổi biệt danh ✨', true); }).catch(function(e){ msg(e.message||e); });
+  });
 }
 
 // ---- Đổi mật khẩu ----
 function changePwd(){
-  var head='<div class="row" style="margin-bottom:12px"><div style="font-weight:900;font-size:18px">🔑 Đổi mật khẩu</div><button class="iconbtn" onclick="closeModal()">✕</button></div>';
+  var head='<div class="row" style="margin-bottom:12px"><div style="font-weight:900;font-size:18px">🔑 Đổi mật khẩu</div><button class="iconbtn" aria-label="Đóng" onclick="closeModal()">✕</button></div>';
   function fld(id,lbl){
     return '<label class="mfield"><span>'+lbl+'</span>'+
       '<span style="position:relative;display:block">'+
@@ -873,6 +933,10 @@ function show(v){
 }
 var SEEN={}; // stale-while-revalidate: lần đầu mới hiện skeleton, lần sau giữ nội dung cũ + refetch ngầm
 function spinner(id){ if(SEEN[id]) return; SEEN[id]=1; el('view-'+id).innerHTML='<div class="spin"></div>'; }
+// List views (pools/hist/lb) show skeleton cards on first paint instead of a bare spinner.
+function skelCards(id, n){ if(SEEN[id]) return; SEEN[id]=1;
+  var one='<div class="card"><div class="row"><div style="flex:1;min-width:0"><div class="sk" style="width:52%;height:16px"></div><div class="sk" style="width:32%;height:11px;margin-top:10px"></div></div><div class="sk" style="width:64px;height:32px;border-radius:11px;flex:none"></div></div></div>';
+  el('view-'+id).innerHTML=new Array((n||3)+1).join(one); }
 function relKick(k){
   var d=new Date(k); if(isNaN(d)) return '';
   var diff=d-Date.now(); if(diff<=0) return '';
@@ -889,7 +953,7 @@ function betSkeleton(){
 
 // ---- Pools ----
 function loadPools(){
-  spinner('pools');
+  skelCards('pools',3);
   srun('getPools', TOKEN).then(function(pools){
     POOLS=pools; // nhớ để tra tên sảnh khi vào (selectPool)
     if(!pools.length){ el('view-pools').innerHTML='<div class="card center muted" style="padding:30px 16px">🏟️<div style="margin-top:8px">Chưa có sảnh nào đang mở.<br>Nhắn admin tạo sảnh nhé!</div></div>'; return; }
@@ -905,11 +969,16 @@ function loadPools(){
     if(joined.length) html+='<div class="muted" style="margin:4px 0 12px;font-weight:700;letter-spacing:.3px">SẢNH CỦA BẠN</div>'+joined.map(card).join('');
     if(other.length) html+='<div class="muted" style="margin:'+(joined.length?'18px':'4px')+' 0 12px;font-weight:700;letter-spacing:.3px">KHÁM PHÁ THÊM</div>'+other.map(card).join('');
     el('view-pools').innerHTML=html;
-  }).catch(function(e){ msg(e.message||e); });
+  }).catch(function(e){ errCard('pools','loadPools()'); msg(e.message||e); });
 }
 function join(poolId, locked){
-  var pwd='';
-  if(locked){ pwd=prompt('Sảnh này cần mật khẩu để tham gia:'); if(pwd==null) return; }
+  if(locked){
+    promptModal('Tham gia sảnh', {label:'Mật khẩu sảnh', type:'password', hint:'Sảnh này cần mật khẩu để tham gia.', ok:'Tham gia'}, function(pwd){ doJoin(poolId, pwd); });
+    return;
+  }
+  doJoin(poolId, '');
+}
+function doJoin(poolId, pwd){
   srun('joinPool', TOKEN, poolId, pwd).then(function(r){ msg('Vào sảnh thành công! Bạn có '+r.startingPoints+' điểm để chinh chiến 🎉', true); loadPools(); }).catch(function(e){ msg(e.message||e); });
 }
 function selectPool(poolId, pts){
@@ -987,7 +1056,7 @@ function matchCard(m){
   }
   var betDot=m.myBets.length?'<span class="bdot" style="margin-left:6px"></span>':'';
   return '<div class="card'+(m.open?'':' mc-closed')+(collapsed?'':' open')+'" id="mc_'+m.fixtureId+'">'+
-    '<div class="row mc-head" style="align-items:flex-start;cursor:pointer" onclick="toggleMatch(\''+m.fixtureId+'\')">'+
+    '<div class="row mc-head" role="button" tabindex="0" aria-label="Mở/thu gọn kèo trận" style="align-items:flex-start;cursor:pointer" onclick="toggleMatch(\''+m.fixtureId+'\')">'+
       '<div class="teams">'+teamFlag(m.team1)+esc(m.team1)+'<span class="vs">vs</span>'+teamFlag(m.team2)+esc(m.team2)+betDot+'</div>'+
       '<div style="display:flex;align-items:center;gap:8px;flex:none">'+kickChip+'<span class="hchev">▾</span></div>'+
     '</div>'+
@@ -1034,7 +1103,7 @@ function mktTag(mtype){
 }
 // ---- Admin: thêm kèo tuỳ chỉnh riêng cho 1 trận (vd "Anh 7 có ghi bàn không?") với odds tự đưa ra ----
 function openAddCustomMarket(fid){
-  var head='<div class="row" style="margin-bottom:4px"><div style="font-weight:900;font-size:17px">➕ Thêm kèo riêng</div><button class="iconbtn" onclick="closeModal()">✕</button></div>';
+  var head='<div class="row" style="margin-bottom:4px"><div style="font-weight:900;font-size:17px">➕ Thêm kèo riêng</div><button class="iconbtn" aria-label="Đóng" onclick="closeModal()">✕</button></div>';
   var body='<div class="muted" style="font-size:12.5px;line-height:1.5">Kèo này chỉ áp dụng cho trận này. Đặt tên tự do & tự cho tỷ lệ, vd “Hôm nay anh 7 có ghi bàn không?”.</div>'+
     '<label class="mfield"><span>Tên kèo</span><input id="am-name" class="minput" placeholder="vd: Anh 7 có ghi bàn không?"></label>'+
     '<div class="mfield"><span>Các cửa cược &amp; tỷ lệ</span><div id="am-outcomes" class="oc-list"></div><button class="oc-add" onclick="addOutcomeRow()">➕ Thêm cửa</button></div>'+
@@ -1085,7 +1154,7 @@ function openEditCustomMarket(fid,cid){
   var m=(MATCHES||[]).filter(function(x){return x.fixtureId===fid;})[0];
   var cm=m?(m.customMarkets||[]).filter(function(c){return c.cid===cid;})[0]:null;
   if(!cm){ msg('Không tìm thấy kèo'); return; }
-  var head='<div class="row" style="margin-bottom:4px"><div style="font-weight:900;font-size:17px">✏️ Sửa kèo</div><button class="iconbtn" onclick="closeModal()">✕</button></div>';
+  var head='<div class="row" style="margin-bottom:4px"><div style="font-weight:900;font-size:17px">✏️ Sửa kèo</div><button class="iconbtn" aria-label="Đóng" onclick="closeModal()">✕</button></div>';
   var body='<div class="muted" style="font-size:12.5px;line-height:1.5">Sửa tên & tỷ lệ, có thể thêm cửa mới (không xoá cửa cũ). Tỷ lệ mới chỉ áp cho cược MỚI — cược đã đặt giữ tỷ lệ cũ.</div>'+
     '<label class="mfield"><span>Tên kèo</span><input id="em-name" class="minput" value="'+esc(cm.name||'')+'"></label>'+
     '<div class="mfield"><span>Các cửa cược &amp; tỷ lệ</span><div id="em-outcomes" class="oc-list">'+(cm.outcomes||[]).map(function(oc){return editRowHtml(oc,false);}).join('')+'</div><button class="oc-add" onclick="addEditOutcomeRow()">➕ Thêm cửa</button></div>'+
@@ -1233,7 +1302,7 @@ function confirmBet(){
 // ---- History / Kết quả ----
 function loadHist(force){
   if(!CURPOOL){ el('view-hist').innerHTML='<div class="card center muted" style="padding:26px">Chọn một sảnh trước nhé.</div>'; return; }
-  swr('hist', function(){ return srun('getHistory', TOKEN, CURPOOL); }, applyHist, function(){ spinner('hist'); }, force);
+  swr('hist', function(){ return srun('getHistory', TOKEN, CURPOOL); }, applyHist, function(){ skelCards('hist',4); }, force);
 }
 function applyHist(rows){ rows=rows||[]; HIST=rows; computeStreak(rows); checkNewWins(rows); renderHist(); }
 function setHFilter(f){ HFILTER=f; renderHist(); }
@@ -1377,7 +1446,7 @@ function histCard(m,i){
       return '<div class="hbetrow"><span class="mtag">'+lbl+'</span><span>'+pickHtml+b.stake+'đ @ '+b.lockedOdds+' · '+esc(b.result)+'</span><span class="hr" style="color:'+dCol+'">'+(d>0?'+':(d<0?'':'±'))+d+'đ</span></div>';
     }).join('');
   } else { lines='<div class="hbetrow" style="color:var(--mut)">'+(m.penalized?'Không tham gia → phạt '+n2(m.net)+'đ':'Không cược')+'</div>'; }
-  return '<div class="card hcard'+hcls+'" id="hc_'+i+'" onclick="toggleHist('+i+')"><div class="row"><div class="teams" style="font-size:15.5px">'+iconHtml+teamFlag(m.team1)+esc(m.team1)+mid+teamFlag(m.team2)+esc(m.team2)+'</div>'+
+  return '<div class="card hcard'+hcls+'" id="hc_'+i+'" role="button" tabindex="0" aria-label="Mở/thu gọn chi tiết cược" onclick="toggleHist('+i+')"><div class="row"><div class="teams" style="font-size:15.5px">'+iconHtml+teamFlag(m.team1)+esc(m.team1)+mid+teamFlag(m.team2)+esc(m.team2)+'</div>'+
     '<div class="hbadge" style="background:'+badgeBg+';color:'+badgeCol+'">'+badgeStr+'</div></div>'+
     '<div class="det" style="display:flex;align-items:center;gap:7px;margin-top:8px">'+tag+'<span>'+when+'</span><span style="margin-left:auto">'+(m.bets.length?m.bets.length+' kèo <span class="hchev">▾</span>':'—')+'</span></div>'+
     '<div id="hd_'+i+'" class="hidden hdet" style="margin-top:8px">'+lines+
@@ -1509,12 +1578,12 @@ function badgeLine(r,idx){
   var shown=chooseShown(earned,r.pinned), extra=earned.length-shown.length;
   var chips=shown.map(function(id){return badgeChip(id,r);}).join('');
   if(extra>0) chips+='<span class="bchip more">+'+extra+'</span>';
-  return '<div class="bline" onclick="event.stopPropagation();openBadges('+idx+')">'+chips+'</div>';
+  return '<div class="bline" role="button" tabindex="0" aria-label="Xem badge" onclick="event.stopPropagation();openBadges('+idx+')">'+chips+'</div>';
 }
 function avColor(name){ name=String(name); var h=0; for(var i=0;i<name.length;i++){ h=(h*31+name.charCodeAt(i))%360; } return 'hsl('+h+',52%,52%)'; }
 function loadLb(){
   if(!CURPOOL){ el('view-lb').innerHTML='<div class="card center muted" style="padding:26px">Chọn một sảnh trước nhé.</div>'; return; }
-  swr('lb', function(){ return srun('getLeaderboard', TOKEN, CURPOOL); }, applyLb, function(){ spinner('lb'); });
+  swr('lb', function(){ return srun('getLeaderboard', TOKEN, CURPOOL); }, applyLb, function(){ skelCards('lb',5); });
 }
 function applyLb(rows){
     LBROWS=rows;
@@ -1558,7 +1627,7 @@ function applyLb(rows){
 // ---- Kết thúc mùa (admin) ----
 function defaultSeasonName(){ var d=new Date(); return 'Mùa '+(d.getMonth()+1)+'/'+d.getFullYear(); }
 function endSeason(poolId, poolName){
-  var head='<div class="row" style="margin-bottom:6px"><div style="font-weight:900;font-size:18px">🏆 Kết thúc mùa</div><button class="iconbtn" onclick="closeModal()">✕</button></div>';
+  var head='<div class="row" style="margin-bottom:6px"><div style="font-weight:900;font-size:18px">🏆 Kết thúc mùa</div><button class="iconbtn" aria-label="Đóng" onclick="closeModal()">✕</button></div>';
   var body='<div class="muted" style="line-height:1.55;margin-bottom:14px">Sảnh <b style="color:var(--ink)">'+esc(poolName)+'</b> — đặt tên mùa rồi xác nhận. Bảng hiện tại sẽ được lưu vào Bảng vàng và điểm được reset cho mùa mới.</div>'+
     '<label class="mfield"><span>Tên mùa</span><input id="es-name" class="minput" value="'+esc(defaultSeasonName())+'"></label>'+
     '<div id="es-top" class="muted" style="margin:12px 0 4px">Đang tải top hiện tại…</div>'+
@@ -1578,7 +1647,7 @@ function doEndSeason(poolId){
 }
 // ---- Bảng vàng (hall of fame) ----
 function openSeasons(){
-  var head='<div class="row" style="margin-bottom:12px"><div style="font-weight:900;font-size:18px">🏆 Bảng vàng</div><button class="iconbtn" onclick="closeModal()">✕</button></div>';
+  var head='<div class="row" style="margin-bottom:12px"><div style="font-weight:900;font-size:18px">🏆 Bảng vàng</div><button class="iconbtn" aria-label="Đóng" onclick="closeModal()">✕</button></div>';
   showModal(head+'<div id="sea-body"><div class="spin"></div></div>');
   srun('getSeasons', TOKEN, CURPOOL).then(function(list){
     var host=el('sea-body'); if(!host) return;
@@ -1595,7 +1664,16 @@ function seasonCard(s){
 function initials(s){ s=String(s).trim(); return (s[0]||'?').toUpperCase()+(s.split(/\s+/)[1]?s.split(/\s+/)[1][0].toUpperCase():''); }
 
 // ---- Badge popup (chú thích + chọn pin) ----
-function closeModal(){ var m=el('modal'); if(m) m.remove(); }
+var _modalReturnFocus=null;
+function closeModal(){ var m=el('modal'); if(m) m.remove();
+  if(_modalReturnFocus && _modalReturnFocus.focus){ try{ _modalReturnFocus.focus(); }catch(e){} } _modalReturnFocus=null; }
+function modalTrap(e){
+  if(e.key!=='Tab') return; var ov=el('modal'); if(!ov) return;
+  var f=ov.querySelectorAll('a[href],button:not([disabled]),input:not([disabled]),select:not([disabled]),textarea:not([disabled]),[tabindex]:not([tabindex="-1"])');
+  if(!f.length) return; var first=f[0], last=f[f.length-1];
+  if(e.shiftKey && document.activeElement===first){ e.preventDefault(); last.focus(); }
+  else if(!e.shiftKey && document.activeElement===last){ e.preventDefault(); first.focus(); }
+}
 function showRules(){
   var rows=[
     ['🎲','Các loại kèo','<b>1X2</b> — Thắng / Hòa / Thua. <b>Tài/Xỉu</b> — tổng số bàn trên hay dưới một mức. <b>Chấp</b> — đội mạnh chấp đội yếu vài trái.'],
@@ -1607,19 +1685,26 @@ function showRules(){
     ['👥','Xem mọi người','Đặt kèo một trận rồi mới xem được cả phòng đang nghiêng về cửa nào.'],
     ['🏆','Xếp hạng & badge','Điểm quyết định thứ hạng. Chơi hay sẽ nhận các badge thành tích.']
   ];
-  var head='<div class="row" style="margin-bottom:12px"><div style="font-weight:900;font-size:18px">📖 Luật chơi</div><button class="iconbtn" onclick="closeModal()">✕</button></div>';
+  var head='<div class="row" style="margin-bottom:12px"><div style="font-weight:900;font-size:18px">📖 Luật chơi</div><button class="iconbtn" aria-label="Đóng" onclick="closeModal()">✕</button></div>';
   var body=rows.map(function(r){ return '<div class="rule"><span class="re">'+r[0]+'</span><div class="rb"><b>'+r[1]+'</b><div class="muted" style="font-size:12.5px;line-height:1.5;margin-top:2px">'+r[2]+'</div></div></div>'; }).join('');
   showModal(head+body);
 }
-function showModal(html){ closeModal();
+function showModal(html){
+  var prev=(el('modal')?_modalReturnFocus:document.activeElement); closeModal(); _modalReturnFocus=prev;
   var ov=document.createElement('div'); ov.id='modal'; ov.className='modal-ov';
+  ov.setAttribute('role','dialog'); ov.setAttribute('aria-modal','true');
   ov.onclick=function(e){ if(e.target===ov) closeModal(); };
   ov.innerHTML='<div class="modal-bx card">'+html+'</div>'; document.body.appendChild(ov);
+  ov.addEventListener('keydown', modalTrap);
+  // move focus into the dialog (first field/button), so keyboard users land inside it
+  var box=ov.firstChild, f=ov.querySelector('input:not([type=hidden]),select,textarea')||ov.querySelector('button,[tabindex]');
+  if(f && f.focus){ f.focus(); if(f.select && f.tagName==='INPUT' && (f.type==='text'||f.type==='password')) f.select(); }
+  else if(box){ box.setAttribute('tabindex','-1'); box.focus(); }
 }
 function openBadges(idx){
   var r=LBROWS[idx]; if(!r) return;
   var isMe=(r.nickname===ME.nickname), earned=r.badges||[];
-  var head='<div class="row" style="margin-bottom:12px"><div style="font-weight:900;font-size:17px">'+esc(r.nickname)+(isMe?' (bạn)':'')+'</div><button class="iconbtn" onclick="closeModal()">✕</button></div>';
+  var head='<div class="row" style="margin-bottom:12px"><div style="font-weight:900;font-size:17px">'+esc(r.nickname)+(isMe?' (bạn)':'')+'</div><button class="iconbtn" aria-label="Đóng" onclick="closeModal()">✕</button></div>';
   if(!earned.length){ showModal(head+'<div class="muted center" style="padding:18px">Chưa có badge nào 🥲</div>'); return; }
   var picked=chooseShown(earned,r.pinned).filter(function(id){return BADGE_BAD_IDS.indexOf(id)<0;});
   var body=earned.map(function(id){ var b=BADGES[id]; if(!b) return ''; var bad=BADGE_BAD_IDS.indexOf(id)>=0;
@@ -1902,5 +1987,161 @@ authTab('login');
 
 
 </script>
+
+<!-- ============================ MOCK HARNESS START ============================ -->
+<!-- Dev-only UI-state switcher. Activate by adding ?harness=1 to the URL.        -->
+<!-- Intercepts the global srun() funnel and feeds each view canned state data.   -->
+<!-- Inactive (no panel, no override, zero impact) unless ?harness=1 is present.  -->
+<!-- To remove entirely: delete everything between MOCK HARNESS START/END.        -->
+<style>
+  .mh-panel{ position:fixed; top:8px; left:8px; z-index:500; width:188px;
+    font:700 12px/1.25 'Outfit',system-ui,sans-serif;
+    background:var(--bg,#0c1611); color:var(--txt,#e9f7ee);
+    border:1px solid var(--lime,#9fe85f); border-radius:12px;
+    box-shadow:0 12px 34px rgba(0,0,0,.5); overflow:hidden; }
+  .mh-bar{ display:flex; align-items:center; justify-content:space-between; gap:8px;
+    padding:8px 10px; background:var(--card,#14241b); font-weight:800; }
+  .mh-bar b{ color:var(--lime,#9fe85f); }
+  .mh-min{ background:transparent; border:0; color:var(--lime,#9fe85f); font-size:16px; line-height:1; cursor:pointer; padding:0 3px; }
+  .mh-body{ display:grid; grid-template-columns:1fr 1fr; gap:5px; padding:8px; }
+  .mh-panel.mh-collapsed .mh-body{ display:none; }
+  .mh-btn{ background:var(--card2,#1b2d23); color:var(--mut,#8ba89a);
+    border:1px solid var(--line2,rgba(255,255,255,.12)); border-radius:8px;
+    padding:7px 5px; font:inherit; cursor:pointer; text-align:center; transition:.12s; }
+  .mh-btn:hover{ color:var(--txt,#e9f7ee); }
+  .mh-btn.on{ background:var(--lime,#9fe85f); color:var(--accent-ink,#0a160e); border-color:var(--lime,#9fe85f); }
+</style>
+<script>
+(function(){
+  if(!/[?&]harness=1/.test(location.search)) return;   // production: do nothing
+
+  var MOCK_STATE='normal';
+  var STATES=[['normal','Normal'],['loading','Loading'],['empty','Empty'],['error','Error'],
+              ['longtext','Long text'],['many','Many items'],['disabled','Disabled'],['permission','Perm denied']];
+  var LONG_T='Bosnia and Herzegovina Athletic Federation United';
+  var LONG_N='NguyễnPhạmTrầnLêHoàngVươngĐặngBùiĐỗHồ';
+  var LONG_M='Cầu thủ số 7 hôm nay có ghi bàn trong hiệp một trước phút 30 không nhỉ các bạn?';
+  function clone(x){ return JSON.parse(JSON.stringify(x)); }
+
+  // ---- CASE 1: a custom bet with many options -> exercises the ">6 cửa => thu gọn" UI ----
+  var BIG_CM={cid:'cmbig', name:'Cầu thủ ghi bàn đầu tiên?', locked:false, result:'', outcomes:[
+    {oid:'gb1',label:'Ronaldo',price:3.5},{oid:'gb2',label:'Vinicius Jr',price:4.0},
+    {oid:'gb3',label:'Mbappé',price:3.8},{oid:'gb4',label:'Haaland',price:4.2},
+    {oid:'gb5',label:'Bellingham',price:6.5},{oid:'gb6',label:'Kane',price:5.0},
+    {oid:'gb7',label:'Không có bàn nào',price:8.0},{oid:'gb8',label:'Cầu thủ khác',price:2.1}]};
+  function injectBigCM(m){
+    var t=(m.matches||[]).filter(function(x){ return x.open&&x.odds; })[0]||(m.matches||[])[0]; if(!t) return;
+    t.customMarkets=(t.customMarkets||[]).concat([clone(BIG_CM)]);
+  }
+
+  // ---- CASE 2: real settlement lifecycle + point simulation, on the shared mock DB (persists across reloads) ----
+  // Wallet baseline (920) is treated as POST-stake (bets already deducted), so settle credits winnings / void refunds stake.
+  function DB(){ mockRun('getPoolView',[]); return mockRun._db; }
+  function seed(){ var d=DB(); if(!d||d._seeded) return; d._seeded=true;
+    var h4=(d.hist||[]).filter(function(x){ return x.fixtureId==='h4'; })[0]; if(!h4) return;
+    h4.bets=[  // demo user's stakes on the two settleable customs -> settling them moves the wallet + leaderboard
+      {marketType:'c_cm2', outcomeId:'cm2_y', label:'Ronaldo: Có',      lockedOdds:2.20, stake:50, payout:0, result:''},
+      {marketType:'c_cm3', outcomeId:'r_a',   label:'Ronaldo: Ghi bàn', lockedOdds:2.10, stake:40, payout:0, result:''}];
+  }
+  function findCM(fid,cid){ var d=DB(), pool=[d.hist||[], (d.matches&&d.matches.matches)||[]];
+    for(var p=0;p<pool.length;p++) for(var i=0;i<pool[p].length;i++){ var mt=pool[p][i];
+      if(mt.fixtureId===fid){ var cms=mt.customMarkets||[]; for(var j=0;j<cms.length;j++) if(cms[j].cid===cid) return {m:mt,cm:cms[j]}; } }
+    return null; }
+  function betOf(m,mtype){ return (m&&(m.bets||m.myBets)||[]).filter(function(b){ return b.marketType===mtype; })[0]; }
+  function pay(bet,newPay,lbl){ if(!bet) return; var d=DB(), delta=newPay-(bet.payout||0); bet.payout=newPay; bet.result=lbl;
+    if(typeof CURPOOLPTS==='number') setPts(CURPOOLPTS+delta);
+    if(d.matches) d.matches.currentPoints=(d.matches.currentPoints||0)+delta;
+    var me=(d.lb||[]).filter(function(r){ return r.nickname===(ME&&ME.nickname); })[0]; if(me) me.points+=delta; }
+  function hSettle(fid,cid,win){ var f=findCM(fid,cid); if(!f) return {}; var bet=betOf(f.m,'c_'+cid);
+    if(win==='VOID'){ f.cm.result='VOID'; pay(bet, bet?bet.stake:0, 'Hoàn'); return {}; }
+    var wins=(Array.isArray(win)?win:String(win).split(',')).map(String); f.cm.result=wins.join(',');
+    var won=bet&&wins.indexOf(String(bet.outcomeId))>=0; if(bet) pay(bet, won?Math.round(bet.stake*bet.lockedOdds):0, won?'Thắng':'Thua');
+    return {}; }
+  function hFinalize(fid,cid){ var f=findCM(fid,cid); if(f) f.cm.locked=true; return {}; }   // lock -> leaves the chấm queue
+  function hSettleStd(fid,mt,win){ var d=DB(), m=(d.hist||[]).filter(function(x){ return x.fixtureId===fid; })[0]; if(!m) return {};
+    var bet=betOf(m,mt);
+    if(win==='VOID') pay(bet, bet?bet.stake:0, 'Hoàn');
+    else if(bet){ var w=String(bet.outcomeId)===String(win); pay(bet, w?Math.round(bet.stake*bet.lockedOdds):0, w?'Thắng':'Thua'); }
+    m.stuckMarkets=(m.stuckMarkets||[]).filter(function(s){ return s.marketType!==mt; });   // settled -> leaves the queue
+    return {}; }
+
+  // Reshape the existing canned mock data per state; unhandled calls fall back to the baseline.
+  function hData(fn, st){
+    var d=mockRun(fn, []);
+    if(fn==='getMatches'){
+      if(st==='empty') return Object.assign(clone(d),{matches:[]});
+      var mm=clone(d); injectBigCM(mm);                              // case 1: 8-option custom market on the first open match
+      if(st==='disabled') mm.matches.forEach(function(m){ m.open=false; });
+      else if(st==='longtext') mm.matches.forEach(function(m){ m.team1=LONG_T; m.team2='FC '+LONG_T; (m.customMarkets||[]).forEach(function(c){ c.name=LONG_M; }); });
+      else if(st==='many'){ var src=mm.matches.slice(); mm.matches=[]; for(var j=0;j<18;j++){ var x=clone(src[j%src.length]); x.fixtureId='hm'+j; mm.matches.push(x);} }
+      return mm;
+    }
+    if(fn==='getPoolView') return { matches:hData('getMatches',st), leaderboard:hData('getLeaderboard',st), history:hData('getHistory',st) };
+    if(st==='normal') return d;
+    if(fn==='getPools'){
+      if(st==='empty') return [];
+      if(st==='longtext'){ var q=clone(d); q.forEach(function(p,i){ p.name=LONG_T+' — Sảnh '+(i+1); }); return q; }
+      if(st==='many'){ var o=[]; for(var i=0;i<12;i++){ var p=clone(d[i%d.length]); p.poolId='hp'+i; p.name='Sảnh thử #'+(i+1); p.joined=i<3; o.push(p);} return o; }
+    }
+    if(fn==='getHistory'){
+      if(st==='empty') return [];
+      if(st==='longtext'){ var lh=clone(d); lh.forEach(function(r){ r.team1=LONG_T; r.team2='FC '+LONG_T; }); return lh; }
+      if(st==='many'){ var h=[]; for(var k=0;k<15;k++){ var r=clone(d[k%d.length]); r.fixtureId='hh'+k; h.push(r);} return h; }
+    }
+    if(fn==='getLeaderboard'){
+      if(st==='empty') return [];
+      if(st==='longtext'){ var lb=clone(d); lb.forEach(function(r){ r.nickname=LONG_N; }); return lb; }
+      if(st==='many'){ var m=[]; for(var n=0;n<30;n++){ var row=clone(d[n%d.length]); row.nickname='Người chơi '+(n+1); row.points=2000-n*47; m.push(row);} return m; }
+    }
+    return d;
+  }
+  function hSrun(fn){
+    var a=[].slice.call(arguments,1), st=MOCK_STATE;
+    if(fn==='resume'||fn==='login'||fn==='register')
+      return Promise.resolve({token:'harness', nickname:'Minh', isAdmin: st!=='permission'});
+    // case 2: settlement mutations always resolve so the full chấm -> hoàn -> chốt lifecycle is testable
+    if(fn==='adminSettleMarket')    return Promise.resolve(hSettle(a[2], a[3], a[4]));   // (token,pool,fid,cid,win)
+    if(fn==='adminSettleStdMarket') return Promise.resolve(hSettleStd(a[2], a[3], a[4])); // (token,pool,fid,mtype,win)
+    if(fn==='adminFinalizeMarket')  return Promise.resolve(hFinalize(a[2], a[3]));        // (token,pool,fid,cid)
+    if(st==='loading') return new Promise(function(){});                       // never resolves -> skeleton
+    if(st==='error')   return Promise.reject(new Error('Máy chủ gặp sự cố (HARNESS)'));
+    if(st==='permission' && /^(getPools|getMatches|getPoolView|getHistory|getLeaderboard|getCrowd)$/.test(fn))
+      return Promise.reject(new Error('Bạn không có quyền xem nội dung này (HARNESS)'));
+    return Promise.resolve(hData(fn, st));
+  }
+  window.srun=hSrun;                                                            // intercept the single server funnel
+
+  function activeView(){
+    return ['pools','bet','hist','lb','admin'].filter(function(x){ var e=el('view-'+x); return e && !e.classList.contains('hidden'); })[0] || 'pools';
+  }
+  function rerender(){
+    try{ Object.keys(localStorage).forEach(function(k){ if(k.indexOf('pv_')===0) localStorage.removeItem(k); }); }catch(e){} // bypass SWR cache
+    window.SEEN={};                                                            // let skeletons paint again
+    var v=activeView();
+    if(v==='pools') loadPools();
+    else if(v==='bet') loadMatches(true);
+    else if(v==='hist') loadHist(true);
+    else if(v==='lb') loadLb();
+    else if(v==='admin') loadAdmin();
+  }
+  function setState(st){
+    MOCK_STATE=st;
+    [].forEach.call(document.querySelectorAll('.mh-btn'), function(b){ b.classList.toggle('on', b.getAttribute('data-state')===st); });
+    rerender();
+  }
+
+  var panel=document.createElement('div'); panel.className='mh-panel'; panel.id='mh-panel';
+  var btns=STATES.map(function(s){ return '<button class="mh-btn'+(s[0]==='normal'?' on':'')+'" data-state="'+s[0]+'">'+s[1]+'</button>'; }).join('');
+  panel.innerHTML='<div class="mh-bar"><span>🧪 <b>UI States</b></span><button class="mh-min" title="Thu gọn">–</button></div><div class="mh-body">'+btns+'</div>';
+  document.body.appendChild(panel);
+  panel.querySelector('.mh-min').onclick=function(){ panel.classList.toggle('mh-collapsed'); this.textContent=panel.classList.contains('mh-collapsed')?'+':'–'; };
+  [].forEach.call(panel.querySelectorAll('.mh-btn'), function(b){ b.onclick=function(){ setState(b.getAttribute('data-state')); }; });
+
+  seed();                                                                      // give the demo user settleable bets (case 2)
+  hSrun('resume').then(onAuthed).then(rerender).catch(function(){});           // enter app in harness mode, bypass login
+})();
+</script>
+<!-- ============================= MOCK HARNESS END ============================= -->
+
 </body>
 </html>
