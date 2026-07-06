@@ -171,6 +171,13 @@
     .ln{ background:var(--line-soft); color:var(--cyan); border:1px solid var(--line-bd);
       border-radius:9px; padding:3px 12px; font-size:15px; font-weight:900; letter-spacing:.2px; text-transform:none; }
     .odds-grid{ display:flex; gap:8px; }
+    /* kèo custom nhiều cửa: tự chuyển sang lưới 2 cột cho dễ đọc (kèo 2-3 cửa giữ nguyên 1 hàng) */
+    .odds-grid.grid2{ display:grid; grid-template-columns:1fr 1fr; }
+    .odds-grid.grid2 .odd{ flex:none; }
+    .odds-grid.grid2.oddcnt .odd:last-child{ grid-column:1 / -1; }
+    .odds-grid.collapsed .odd:nth-child(n+7){ display:none; }
+    .mkt-more{ margin-top:8px; width:100%; background:transparent; color:var(--mut); border:1px dashed var(--line2); border-radius:10px; padding:8px 12px; font-size:13px; font-weight:800; cursor:pointer; transition:.14s; }
+    .mkt-more:hover{ color:var(--txt); border-color:var(--cyan); background:var(--card2); }
     .odd{ position:relative; flex:1; background:var(--card2); color:var(--txt); border:1px solid var(--line2); border-radius:14px;
       padding:11px 6px 12px; display:flex; flex-direction:column; gap:5px; align-items:center; cursor:pointer; overflow:hidden;
       transition:transform .12s cubic-bezier(.2,.9,.3,1.2), background-color .18s, border-color .18s, box-shadow .2s; }
@@ -197,6 +204,7 @@
     .mfield > span{ display:block; font-size:11px; font-weight:800; color:var(--mut2); text-transform:uppercase; letter-spacing:1px; margin-bottom:6px; }
     .minput{ width:100%; background:var(--inputbg); color:var(--txt); border:1px solid var(--line2); border-radius:11px; padding:11px 12px; font-size:14px; font-weight:600; box-sizing:border-box; }
     .minput:focus{ outline:none; border-color:var(--lime); box-shadow:0 0 0 3px var(--accent-glow); }
+    .oc-list{ max-height:min(46vh,320px); overflow:auto; margin:0 -4px; padding:2px 4px; }
     .ocrow{ display:flex; gap:8px; align-items:center; margin-top:8px; }
     .ocrow .oc-lbl{ flex:1; }
     .ocrow .oc-odd{ width:88px; flex:none; }
@@ -988,12 +996,26 @@ function matchCard(m){
 }
 // Kèo tự ra ở tab Trận đấu: hiển thị GIỐNG kèo thường (tên kèo + ô cửa cược). Admin có nút sửa/xoá nhỏ.
 // Trận đã bắt đầu -> rời tab này sang tab Kết quả; việc chấm kết quả nằm ở đó.
+var CM_OPEN={};
 function customMarketBlock(m,cm,byMkt){
   var mt='c_'+cm.cid, admin=isAdmin();
   var tools=admin?'<span class="mkt-tools"><button class="mkt-tool" title="Sửa tên/tỷ lệ" onclick="event.stopPropagation();openEditCustomMarket(\''+m.fixtureId+'\',\''+cm.cid+'\')">✏️</button><button class="mkt-tool" title="Xoá kèo (hoàn điểm)" onclick="event.stopPropagation();deleteCustomMarket(\''+m.fixtureId+'\',\''+cm.cid+'\')">🗑</button></span>':'';
   var head='<div class="mkt">'+esc(cm.name)+tools+'</div>';
-  var grid='<div class="odds-grid">'+(cm.outcomes||[]).map(function(oc){ return oddBtnQ(m,mt,oc.oid,oc.label,oc.price); }).join('')+'</div>';
-  return head+grid+betLines(byMkt[mt],m);
+  var oc=(cm.outcomes||[]);
+  var gcls=oc.length>3 ? ' grid2'+(oc.length%2?' oddcnt':'') : '';
+  // Kèo nhiều cửa (>6) có thể thu gọn: mặc định chỉ hiện 6 cửa đầu.
+  var key=m.fixtureId+'_'+cm.cid, collapsible=oc.length>6, open=!!CM_OPEN[key];
+  var collapsed=collapsible&&!open;
+  var grid='<div class="odds-grid'+gcls+(collapsed?' collapsed':'')+'" id="cmg_'+key+'">'+oc.map(function(oc){ return oddBtnQ(m,mt,oc.oid,oc.label,oc.price); }).join('')+'</div>';
+  var more=collapsible?'<button class="mkt-more" id="cmm_'+key+'" onclick="event.stopPropagation();toggleCustomMarket(\''+key+'\')">'+(open?'▴ Thu gọn':'▾ Xem thêm '+(oc.length-6)+' cửa')+'</button>':'';
+  return head+grid+more+betLines(byMkt[mt],m);
+}
+function toggleCustomMarket(key){
+  CM_OPEN[key]=!CM_OPEN[key];
+  var g=el('cmg_'+key), b=el('cmm_'+key); if(!g) return;
+  var open=!!CM_OPEN[key];
+  g.classList.toggle('collapsed',!open);
+  if(b){ var n=g.querySelectorAll('.odd').length; b.textContent=open?'▴ Thu gọn':'▾ Xem thêm '+(n-6)+' cửa'; }
 }
 function toggleMatch(fid){ var c=el('mc_'+fid), b=el('mb_'+fid); if(c)c.classList.toggle('open'); if(b)b.classList.toggle('collapsed'); }
 function mktDisplayName(mtype){
@@ -1015,7 +1037,7 @@ function openAddCustomMarket(fid){
   var head='<div class="row" style="margin-bottom:4px"><div style="font-weight:900;font-size:17px">➕ Thêm kèo riêng</div><button class="iconbtn" onclick="closeModal()">✕</button></div>';
   var body='<div class="muted" style="font-size:12.5px;line-height:1.5">Kèo này chỉ áp dụng cho trận này. Đặt tên tự do & tự cho tỷ lệ, vd “Hôm nay anh 7 có ghi bàn không?”.</div>'+
     '<label class="mfield"><span>Tên kèo</span><input id="am-name" class="minput" placeholder="vd: Anh 7 có ghi bàn không?"></label>'+
-    '<div class="mfield"><span>Các cửa cược &amp; tỷ lệ</span><div id="am-outcomes"></div><button class="oc-add" onclick="addOutcomeRow()">➕ Thêm cửa</button></div>'+
+    '<div class="mfield"><span>Các cửa cược &amp; tỷ lệ</span><div id="am-outcomes" class="oc-list"></div><button class="oc-add" onclick="addOutcomeRow()">➕ Thêm cửa</button></div>'+
     '<button class="btn block" style="margin-top:16px" onclick="saveAddCustomMarket(\''+fid+'\')">Tạo kèo</button>';
   showModal(head+body);
   addOutcomeRow('Có','2.00'); addOutcomeRow('Không','1.70');
@@ -1026,8 +1048,10 @@ function outcomeRowHtml(lbl,odd){
 }
 function addOutcomeRow(lbl,odd){
   var box=el('am-outcomes'); if(!box) return;
-  if(box.children.length>=5){ msg('Tối đa 5 cửa'); return; }
+  if(box.children.length>=12){ msg('Tối đa 12 cửa'); return; }
   box.insertAdjacentHTML('beforeend', outcomeRowHtml(lbl,odd));
+  box.scrollTop=box.scrollHeight;
+  if(arguments.length===0){ var i=box.lastElementChild.querySelector('.oc-lbl'); if(i) i.focus(); }
 }
 function saveAddCustomMarket(fid){
   var name=(el('am-name').value||'').trim();
@@ -1052,8 +1076,10 @@ function editRowHtml(oc,isNew){
 }
 function addEditOutcomeRow(){
   var box=el('em-outcomes'); if(!box) return;
-  if(box.children.length>=6){ msg('Tối đa 6 cửa'); return; }
+  if(box.children.length>=12){ msg('Tối đa 12 cửa'); return; }
   box.insertAdjacentHTML('beforeend', editRowHtml(null,true));
+  box.scrollTop=box.scrollHeight;
+  var i=box.lastElementChild.querySelector('.oc-lbl'); if(i) i.focus();
 }
 function openEditCustomMarket(fid,cid){
   var m=(MATCHES||[]).filter(function(x){return x.fixtureId===fid;})[0];
@@ -1062,7 +1088,7 @@ function openEditCustomMarket(fid,cid){
   var head='<div class="row" style="margin-bottom:4px"><div style="font-weight:900;font-size:17px">✏️ Sửa kèo</div><button class="iconbtn" onclick="closeModal()">✕</button></div>';
   var body='<div class="muted" style="font-size:12.5px;line-height:1.5">Sửa tên & tỷ lệ, có thể thêm cửa mới (không xoá cửa cũ). Tỷ lệ mới chỉ áp cho cược MỚI — cược đã đặt giữ tỷ lệ cũ.</div>'+
     '<label class="mfield"><span>Tên kèo</span><input id="em-name" class="minput" value="'+esc(cm.name||'')+'"></label>'+
-    '<div class="mfield"><span>Các cửa cược &amp; tỷ lệ</span><div id="em-outcomes">'+(cm.outcomes||[]).map(function(oc){return editRowHtml(oc,false);}).join('')+'</div><button class="oc-add" onclick="addEditOutcomeRow()">➕ Thêm cửa</button></div>'+
+    '<div class="mfield"><span>Các cửa cược &amp; tỷ lệ</span><div id="em-outcomes" class="oc-list">'+(cm.outcomes||[]).map(function(oc){return editRowHtml(oc,false);}).join('')+'</div><button class="oc-add" onclick="addEditOutcomeRow()">➕ Thêm cửa</button></div>'+
     '<button class="btn block" style="margin-top:16px" onclick="saveEditCustomMarket(\''+fid+'\',\''+cid+'\')">Lưu thay đổi</button>';
   showModal(head+body);
   setTimeout(function(){ var i=el('em-name'); if(i) i.focus(); },60);

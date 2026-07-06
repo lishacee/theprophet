@@ -23,7 +23,7 @@ export async function adminAddMarket(env, token, poolId, fixtureId, name, outcom
   name = (name || '').toString().trim();
   if (!name) throw new Error('Cần tên kèo');
   if (!Array.isArray(outcomes) || outcomes.length < 2) throw new Error('Cần ít nhất 2 cửa cược');
-  if (outcomes.length > 6) throw new Error('Tối đa 6 cửa');
+  if (outcomes.length > 12) throw new Error('Tối đa 12 cửa');
   const outs = outcomes.map((o, i) => {
     const lbl = (o.label || '').toString().trim(), p = Number(o.price);
     if (!lbl) throw new Error('Cửa thiếu tên');
@@ -44,7 +44,7 @@ export async function adminEditMarket(env, token, poolId, fixtureId, cid, name, 
   name = (name || '').toString().trim();
   if (!name) throw new Error('Cần tên kèo');
   if (!Array.isArray(outcomes)) throw new Error('Thiếu cửa cược');
-  if (outcomes.length > 6) throw new Error('Tối đa 6 cửa');
+  if (outcomes.length > 12) throw new Error('Tối đa 12 cửa');
   const existing = JSON.parse(cm.outcomesJson || '[]');
   const byOid = {}; existing.forEach(o => byOid[String(o.oid)] = o);
   let maxOid = existing.reduce((m, o) => Math.max(m, Number(o.oid)), -1);

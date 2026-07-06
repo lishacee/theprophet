@@ -1,0 +1,122 @@
+{
+  "schemaVersion": 2,
+  "generatedAt": "2026-07-06T01:00:00.000Z",
+  "title": "Design System: The Prophet",
+  "extensions": {
+    "colorMeta": {
+      "accent-lime": { "role": "primary", "displayName": "Electric Lime", "canonical": "#9fe85f", "tonalRamp": ["#1c2e0e", "#34521a", "#4e7a26", "#6aa334", "#85c847", "#9fe85f", "#bff08c", "#e0fbc9"] },
+      "accent-violet": { "role": "primary", "displayName": "Vivid Violet (Candy Pop)", "canonical": "#7c3aed", "tonalRamp": ["#1e0f3a", "#2e1758", "#43227f", "#5a2eab", "#6f36d6", "#7c3aed", "#a273f4", "#d3c2fb"] },
+      "win": { "role": "tertiary", "displayName": "Win Green", "canonical": "#84e07a", "tonalRamp": ["#12300f", "#1f5019", "#2e7826", "#43a338", "#5fc84f", "#84e07a", "#b0eea8", "#dbf7d6"] },
+      "lose": { "role": "tertiary", "displayName": "Loss Coral", "canonical": "#ff6b78", "tonalRamp": ["#3a1013", "#5e1a20", "#8a2530", "#bf3646", "#e84f5f", "#ff6b78", "#ff9fa8", "#ffd0d5"] },
+      "gold": { "role": "tertiary", "displayName": "Streak Gold", "canonical": "#f2c43d", "tonalRamp": ["#3a2c08", "#5e470d", "#8a6813", "#bf8f1c", "#e0ab2a", "#f2c43d", "#f7d888", "#fceecb"] },
+      "ink": { "role": "neutral", "displayName": "Pitch Neutral (field → ink)", "canonical": "#e9f7ee", "tonalRamp": ["#0c1611", "#14241b", "#1b2d23", "#35493d", "#5f7669", "#8ba89a", "#b9d0c6", "#e9f7ee"] }
+    },
+    "typographyMeta": {
+      "display": { "displayName": "Display", "purpose": "Screen titles and the points balance. 22px is the ceiling — dense tool, no oversized hero." },
+      "title": { "displayName": "Title", "purpose": "Brand mark and section heads." },
+      "body": { "displayName": "Body", "purpose": "All reading text at 15px inside the 540px column." },
+      "label": { "displayName": "Label", "purpose": "Functional uppercase data micro-labels only, never decorative eyebrows." }
+    },
+    "shadows": [
+      { "name": "card-ambient", "value": "0 10px 26px rgba(0,0,0,.32)", "purpose": "Resting shadow on every card (dark). Light theme: 0 10px 26px rgba(110,70,170,.14), tinted not black." },
+      { "name": "accent-glow", "value": "0 6px 16px rgba(159,232,95,.18)", "purpose": "Lit signal under primary buttons and active elements. Reserved for action." },
+      { "name": "focus-ring", "value": "0 0 0 3px rgba(159,232,95,.18)", "purpose": "Input/control focus, paired with a lime border." },
+      { "name": "nav-lift", "value": "0 8px 24px rgba(0,0,0,.22)", "purpose": "Sticky topbar lift." }
+    ],
+    "motion": [
+      { "name": "press", "value": "transform .12s", "purpose": "Button/pressable feedback: translateY(1px) scale(.99) on :active." },
+      { "name": "theme-swap", "value": "background-color .25s, border-color .25s", "purpose": "Smooth transition between Neon Pitch and Candy Pop." },
+      { "name": "toast", "value": "transform .35s cubic-bezier(.2,.9,.3,1.2)", "purpose": "Toast slide-in from the top." }
+    ],
+    "breakpoints": [
+      { "name": "column", "value": "540px", "purpose": "Single-column max width; the app is phone-first and never widens past this." }
+    ]
+  },
+  "components": [
+    {
+      "name": "Primary Button",
+      "kind": "button",
+      "refersTo": "button-primary",
+      "description": "The one action button — lime fill, presses down on tap.",
+      "html": "<button class=\"ds-btn-primary\">Đặt kèo</button>",
+      "css": ".ds-btn-primary { background:#9fe85f; color:#0a160e; border:0; border-radius:13px; padding:13px 18px; font-weight:800; font-size:15px; box-shadow:0 6px 16px rgba(159,232,95,.18); transition:transform .12s, box-shadow .2s, background-color .25s; cursor:pointer; } .ds-btn-primary:hover { box-shadow:0 8px 22px rgba(159,232,95,.28); } .ds-btn-primary:active { transform:translateY(1px) scale(.99); } .ds-btn-primary:focus-visible { outline:none; box-shadow:0 0 0 3px rgba(159,232,95,.35); } .ds-btn-primary:disabled { opacity:.4; cursor:not-allowed; }"
+    },
+    {
+      "name": "Ghost Button",
+      "kind": "button",
+      "refersTo": "button-ghost",
+      "description": "Secondary action — transparent with a hairline border.",
+      "html": "<button class=\"ds-btn-ghost\">Huỷ</button>",
+      "css": ".ds-btn-ghost { background:transparent; color:#e9f7ee; border:1px solid rgba(255,255,255,.12); border-radius:13px; padding:13px 18px; font-weight:700; font-size:15px; transition:border-color .15s, background-color .15s; cursor:pointer; } .ds-btn-ghost:hover { border-color:rgba(159,232,95,.4); } .ds-btn-ghost:active { transform:translateY(1px) scale(.99); }"
+    },
+    {
+      "name": "Status Chip",
+      "kind": "chip",
+      "refersTo": "chip-lime",
+      "description": "Pill status/badge — lime on a raised surface.",
+      "html": "<span class=\"ds-chip\">🔥 onfire</span>",
+      "css": ".ds-chip { display:inline-flex; align-items:center; gap:6px; padding:5px 11px; border-radius:999px; font-size:12.5px; font-weight:700; white-space:nowrap; background:#1b2d23; color:#9fe85f; border:1px solid rgba(159,232,95,.32); }"
+    },
+    {
+      "name": "Card",
+      "kind": "card",
+      "refersTo": "card",
+      "description": "Floating rounded surface with ambient shadow — the base container.",
+      "html": "<div class=\"ds-card\"><div class=\"ds-card-row\"><span>Brazil vs Argentina</span><span class=\"ds-pts\">+210đ</span></div></div>",
+      "css": ".ds-card { background:#14241b; border:1px solid rgba(255,255,255,.07); border-radius:20px; padding:16px; box-shadow:0 10px 26px rgba(0,0,0,.32); color:#e9f7ee; } .ds-card-row { display:flex; justify-content:space-between; align-items:center; gap:12px; font-weight:600; } .ds-pts { font-weight:800; color:#84e07a; }"
+    },
+    {
+      "name": "Text Input",
+      "kind": "input",
+      "refersTo": "input",
+      "description": "Field on a dark well; lime border + glow on focus.",
+      "html": "<input class=\"ds-input\" placeholder=\"Điểm cược\" />",
+      "css": ".ds-input { background:#0c1812; border:1px solid rgba(255,255,255,.12); color:#e9f7ee; border-radius:12px; padding:12px 13px; font-size:15px; width:100%; outline:none; transition:border-color .15s, box-shadow .15s; } .ds-input::placeholder { color:#8ba89a; } .ds-input:focus { border-color:#9fe85f; box-shadow:0 0 0 3px rgba(159,232,95,.18); }"
+    },
+    {
+      "name": "Settlement Checklist Option",
+      "kind": "custom",
+      "refersTo": "settlement-checklist",
+      "description": "Signature admin surface — a full-width checkable outcome row; tick box fills lime when the outcome is marked a winner.",
+      "html": "<button class=\"ds-sq-opt ds-cur\"><span class=\"ds-sq-box\">✓</span><span class=\"ds-sq-lbl\">Ronaldo ghi bàn</span><span class=\"ds-sq-oo\">@ 2.10</span></button>",
+      "css": ".ds-sq-opt { display:flex; align-items:center; gap:10px; width:100%; text-align:left; padding:11px 13px; border-radius:12px; background:#1b2d23; border:1px solid rgba(255,255,255,.12); color:#e9f7ee; font-size:14px; cursor:pointer; transition:background .14s, border-color .14s; } .ds-sq-box { flex:none; width:22px; height:22px; border-radius:7px; border:2px solid rgba(255,255,255,.12); background:#0c1812; display:inline-flex; align-items:center; justify-content:center; font-size:13px; color:transparent; transition:.14s; } .ds-sq-lbl { flex:1; } .ds-sq-oo { color:#8ba89a; font-weight:700; font-size:12.5px; } .ds-sq-opt.ds-cur { background:rgba(132,224,122,.07); border-color:rgba(132,224,122,.4); } .ds-sq-opt.ds-cur .ds-sq-box { background:#84e07a; border-color:#84e07a; color:#06210f; }"
+    }
+  ],
+  "narrative": {
+    "northStar": "The Floodlit Pitch",
+    "overview": "The Prophet is a night match under stadium floodlights, held in the hand. The default Neon Pitch theme is a near-black pitch-green field lit by a single electric-lime glow; Candy Pop is the same match in daylight, lavender and violet. It is a game, not a bookmaker — friends leaning over a phone arguing about a scoreline, not a casino floor. The layout is a narrow (≤540px), thumb-first single column; density is high but breathing, with rounded 20px cards floating on a dark field under soft shadow and a faint accent glow. Color is functional: lime is action/your points, green is win, coral is loss, gold is streak/reward.",
+    "keyCharacteristics": [
+      "Mobile-first single column, ≤540px, generous bottom padding for a sticky nav.",
+      "Dark Neon Pitch default; light Candy Pop alternate — both first-class, both pass contrast.",
+      "One electric accent (lime / violet) for action, plus a fixed win/lose/gold semantic set.",
+      "Soft glow and shadow for depth; rounded tactile cards; no flat gray.",
+      "Vietnamese UI copy, casual and a little cheeky."
+    ],
+    "rules": [
+      { "name": "The One Accent Rule", "body": "Exactly one action color per theme (lime, or violet in Candy Pop). Other emphasis uses weight, size, or a semantic outcome color — never a second bright hue.", "section": "colors" },
+      { "name": "The Semantic Lock", "body": "Green/coral/gold mean win/loss/reward only. Never decorative.", "section": "colors" },
+      { "name": "The Contrast Floor Rule", "body": "Muted text must clear 4.5:1 on its surface; muted-quiet (#5f7669) and Candy Pop muted (#7d7596) are borderline — large or non-essential text only.", "section": "colors" },
+      { "name": "The One Family Rule", "body": "Outfit only; hierarchy is weight (400 → 800 → 900) and size, never a second typeface.", "section": "typography" },
+      { "name": "The Functional Caps Rule", "body": "Uppercase tracked type only as a genuine data label, never a decorative eyebrow.", "section": "typography" },
+      { "name": "The Lit-Not-Flat Rule", "body": "Cards rest with soft ambient shadow; action elements add an accent glow. A dead-flat card reads as broken here.", "section": "elevation" },
+      { "name": "The Glow Belongs To Action Rule", "body": "The lime glow is reserved for interactive/active elements, not static decoration.", "section": "elevation" }
+    ],
+    "dos": [
+      "Do keep one action color per theme; express other emphasis with weight, size, or a semantic color.",
+      "Do reserve green/coral/gold for win/loss/reward only.",
+      "Do give cards the ambient shadow and action elements the accent glow — lit, never flat.",
+      "Do keep body text at ink and verify muted text clears 4.5:1.",
+      "Do design mobile-first inside the 540px column with the primary matchday action one tap away.",
+      "Do use uppercase tracked type only as functional data labels."
+    ],
+    "donts": [
+      "Don't adopt real-money sportsbook patterns — no blinking, nagging, or dark-pattern bet nudges. Points are play.",
+      "Don't ship the gray uniform card-grid of template SaaS admins or repeat identical icon+heading+text cards.",
+      "Don't use AI-landing grammar: no uppercase eyebrow on every section, no background-clip:text gradient text, no hero-metric template.",
+      "Don't drift toward navy-and-gold fintech stiffness — keep playful, competitive warmth.",
+      "Don't nest a card inside a card; use a surface-raised panel.",
+      "Don't use border-left/right > 1px as a colored accent stripe.",
+      "Don't put muted gray text on the lime/violet accent — use accent-ink."
+    ]
+  }
+}
