@@ -1121,7 +1121,7 @@ function csInner(m,eo){
   var odd=sc
     ? '<button class="odd cs-odd" '+(m.open?'':'disabled')+' onclick="pick(\''+m.fixtureId+'\',\'cs\',\''+sc.oid+'\','+sc.price+')"><span class="lbl">'+sel.h+':'+sel.a+'</span><span class="val">'+sc.price+'</span></button>'
     : '<button class="odd cs-odd" disabled><span class="lbl">'+sel.h+':'+sel.a+'</span><span class="val">—</span></button>';
-  return stepper(m.team1,'h',sel.h,b.mh)+stepper(m.team2,'a',sel.a,b.ma)+'<div class="cs-pick">'+odd+(sc?'':'<span class="cs-na">Bookmaker chưa ra tỉ số này</span>')+'</div>';
+  return stepper(m.team1,'h',sel.h,b.mh)+stepper(m.team2,'a',sel.a,b.ma)+'<div class="cs-pick">'+odd+(sc?'':'<span class="cs-na">Kèo quỷ không có</span>')+'</div>';
 }
 function csStep(fid,which,delta){
   var m=MATCHES.filter(function(x){return x.fixtureId===fid;})[0]; if(!m||!m.odds.cs) return;
