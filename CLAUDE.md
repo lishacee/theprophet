@@ -101,7 +101,13 @@ renders offline — keep `mockRun` shapes in sync with real Worker responses whe
 - **`DEFAULT_BOOKMAKER='pinnacle'`** for WC coverage (has AH .0/.5, corners, cards).
 - **`SELECT *` is intentional** in `db.js` and the query helpers — rows map to `COLS`-shaped
   objects and `appendRow` relies on column order. Don't "optimize" to explicit column lists.
-  The real perf lever is avoiding N+1: batch with `IN (...)` (see `pools.js` Odds fetch), not per-row queries.
-- Perf triage: `wrangler d1 insights` for slow queries, `wrangler tail` for live cron/settlement logs.
+- **D1 is the perf floor** (~200ms/query cross-region; every `await env.DB.*` = one serial round-trip).
+  Levers, in order: (1) `db.batch([...])` independent reads into one round-trip (`getMatches_`/
+  `getHistory_`/`getCrowd`/`badgesForPool`); dependent reads (Odds needs Matches' `fixtureId`) go to a
+  2nd phase. (2) Prefetch once, pass as context — `betLabel(…, ctx={catalog,cmByCid})`, nick-map from
+  one `Users` read — never `findRow`/`midLine` in a per-bet loop. (3) `IN (...)` for one-table fan-out.
+  New read path → batch its independent reads from the start.
+- Perf triage: `console.log('[timing]', Date.now()-t)` + `wrangler tail` splits server vs proxy time;
+  `wrangler d1 insights` for slow queries.
 - Never commit secrets: `api-key.txt`, `.dev.vars`, `prophet-export.json`, `seed.sql` are gitignored
   (the last two contain user passHash/salt/token dumps).

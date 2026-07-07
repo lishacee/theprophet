@@ -277,27 +277,30 @@ export async function mtKeys(env, poolId, actor){
 }
 
 // marketId -> handicap, from the /markets catalog cached in D1 (built by refreshOdds, Phase 4).
-export async function midLine(env, mid){
-  const idx = await cacheGet(env, MARKETS_CACHE_KEY, 90 * 86400000);
+export async function midLine(env, mid, catalog){
+  const idx = catalog || await cacheGet(env, MARKETS_CACHE_KEY, 90 * 86400000);
   if (!idx) return undefined;
   for (const k of Object.keys(idx)) for (const l of idx[k]) if (String(l.mid) === String(mid)) return l.hcap;
   return undefined;
 }
 
-// Nhãn kèo dựng TỪ dòng bet + tên đội. Port of betLabel_ (async: custom reads CustomMarkets, ou/ah reads catalog).
-export async function betLabel(env, b, t1, t2){
+// Nhãn kèo dựng TỪ dòng bet + tên đội. ctx (tùy chọn) = { catalog, cmByCid } đã prefetch để
+// tránh N+1 DB read khi gọi hàng loạt (getHistory); không có ctx thì tự đọc DB như cũ.
+export async function betLabel(env, b, t1, t2, ctx){
   const mid = Number(b.marketId), oid = Number(b.outcomeId), mt = String(b.marketType);
   if (mt.indexOf('c_') === 0) {
-    const cm = await findRow(env, 'CustomMarkets', 'cid', mt.slice(2));
+    const cm = (ctx && ctx.cmByCid) ? ctx.cmByCid[mt.slice(2)] : await findRow(env, 'CustomMarkets', 'cid', mt.slice(2));
     if (!cm) return '';
-    let oc; try { oc = JSON.parse(cm.outcomesJson || '[]').filter(o => String(o.oid) === String(b.outcomeId))[0]; } catch(e){}
+    let outs = cm.outcomes; if (!outs) { try { outs = JSON.parse(cm.outcomesJson || '[]'); } catch(e){ outs = []; } }
+    const oc = outs.filter(o => String(o.oid) === String(b.outcomeId))[0];
     return oc ? (cm.name + ': ' + oc.label) : cm.name;
   }
   if (mt === '1x2') return oid === 102 ? 'Hòa' : (oid === 103 ? t2 : t1);
   if (mt === 'btts') return '2 đội ghi bàn: ' + (oid === mid ? 'Có' : 'Không');
-  if (OU_KIND_LABEL[mt]) { const ln = await midLine(env, mid); return (oid === mid ? 'Tài ' : 'Xỉu ') + OU_KIND_LABEL[mt] + (ln != null ? ' ' + ln : ''); }
+  const cat = ctx && ctx.catalog;
+  if (OU_KIND_LABEL[mt]) { const ln = await midLine(env, mid, cat); return (oid === mid ? 'Tài ' : 'Xỉu ') + OU_KIND_LABEL[mt] + (ln != null ? ' ' + ln : ''); }
   if (mt === 'ah') {
-    const al = await midLine(env, mid);
+    const al = await midLine(env, mid, cat);
     if (al == null) return oid === mid ? t1 : t2;
     const side = oid === mid ? t1 : t2, l2 = oid === mid ? al : -al;
     return side + ' ' + (l2 > 0 ? '+' : '') + l2;

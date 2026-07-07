@@ -1426,7 +1426,7 @@ function settleItem(it){
     ? '<div class="sq-actions"><button class="sq-btn ghost" onclick="toggleSettlePanel(\''+key+'\')">↻ Sửa ▾</button><button class="sq-btn lock" onclick="finalizeMarket(\''+fid+'\',\''+cid+'\')">🔒 Chốt</button></div>'
     : '<button class="sq-btn" onclick="toggleSettlePanel(\''+key+'\')">Chấm ▾</button>';
   var opts=(cm.outcomes||[]).map(function(oc){ var cur=!!winSet[String(oc.oid)]; return '<button class="sq-opt check'+(cur?' cur':'')+'" onclick="toggleWin(\''+fid+'\',\''+cid+'\',\''+oc.oid+'\')"><span class="sq-box">✓</span><span class="sq-lbl">'+esc(oc.label)+'</span><span class="sq-oo">@ '+oc.price+'</span>'+(cur?'<span class="sq-cur">thắng</span>':'')+'</button>'; }).join('');
-  var refundCur=voided;
+  var refundCur=voided, noneCur=none;
   // Kèo clone chưa chấm: gợi ý áp kết quả sảnh nguồn (admin xác nhận/sửa sau). srcResult rỗng = nguồn chưa chấm.
   var srcBtn='';
   if(!settled && cm.srcResult!=null && cm.srcResult!==''){
@@ -1438,6 +1438,7 @@ function settleItem(it){
     '<div class="sq-hint">☑︎ <b>Chọn được nhiều cửa.</b> Tick <b>mọi</b> cửa THẮNG (vd vừa “ghi bàn” vừa “ghi bàn &amp; kiến tạo”). Tick lại để bỏ. Cửa không tick = thua. Điểm áp ngay, sửa lại được.</div>'+
     srcBtn+
     '<div class="sq-opts multi">'+opts+'</div>'+
+    '<button class="sq-refund'+(noneCur?' cur':'')+'" onclick="settleNone(\''+fid+'\',\''+cid+'\')">∅ Tất cả đều sai'+(noneCur?' · đang chọn':'')+'</button>'+
     '<button class="sq-refund'+(refundCur?' cur':'')+'" onclick="doSettleMarket(\''+fid+'\',\''+cid+'\',\'VOID\')">↩︎ Hoàn cả kèo — trả điểm mọi người'+(refundCur?' · đang chọn':'')+'</button>'+
     '</div>';
   return '<div class="sq-item'+(settled?' done':'')+'"><div class="sq-row"><div class="sq-info"><div class="sq-name">🎯 '+esc(cm.name)+'</div><div class="sq-match">'+sub+'</div></div>'+actions+'</div>'+panel+'</div>';
@@ -1454,6 +1455,16 @@ function toggleWin(fid,cid,oid){
   srun('adminSettleMarket', TOKEN, CURPOOL, fid, cid, wins).then(function(){
     msg(wins.length?'Đã chấm kèo ✓':'Đã bỏ hết cửa thắng — mọi cửa thua ✓', true);
     loadMatches(true);
+  }).catch(function(e){ cm.result=prev; renderHist(); msg(e.message||e); });
+}
+// Chấm "tất cả cửa đều sai" -> result NONE (mọi cược thua, KHÁC với hoàn/VOID trả điểm).
+function settleNone(fid,cid){
+  var m=(HIST||[]).filter(function(x){return x.fixtureId===fid;})[0];
+  var cm=m&&(m.customMarkets||[]).filter(function(c){return c.cid===cid;})[0];
+  if(!cm){ msg('Không tìm thấy kèo'); return; }
+  var prev=cm.result; cm.result='NONE'; SQ_OPEN[fid+'_'+cid]=true; renderHist();
+  srun('adminSettleMarket', TOKEN, CURPOOL, fid, cid, 'NONE').then(function(){
+    msg('Đã chấm — mọi cửa đều thua ✓', true); loadMatches(true);
   }).catch(function(e){ cm.result=prev; renderHist(); msg(e.message||e); });
 }
 // Áp kết quả sảnh nguồn (kèo clone) rồi để admin sửa nếu cần — chỉ là gợi ý điểm khởi đầu.

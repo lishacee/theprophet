@@ -3,7 +3,7 @@
 // so two concurrent bets can't overspend. Read-based checks (per-market max, cover-all) stay
 // best-effort — a lost race there only affects badge-arb, never the balance. // ponytail: balance is the invariant that must be atomic; the rest can be eventually-consistent.
 import { authUser, isAdmin, uuid } from './auth.js';
-import { findRow, findRows, appendRow, deleteRow, cached, cacheBust } from './db.js';
+import { findRow, findRows, appendRow, deleteRow, cached, cacheBust, batch } from './db.js';
 import * as C from './core.js';
 import { getLeaderboard, getHistory } from './social.js';
 
@@ -48,9 +48,16 @@ export async function getMatches(env, token, poolId){
 async function getMatches_(env, poolId, user){
   const now = new Date();
   const horizon = new Date(now.getTime() + 48 * 3600000);
-  const poolRow = await findRow(env, 'Pools', 'poolId', poolId);
+  const [poolRows, allMatches, allBets, cms, memRows] = await batch(env, [
+    env.DB.prepare('SELECT * FROM Pools WHERE poolId=?').bind(poolId),
+    env.DB.prepare('SELECT * FROM Matches WHERE poolId=?').bind(poolId),
+    env.DB.prepare('SELECT * FROM Bets WHERE poolId=?').bind(poolId),
+    env.DB.prepare('SELECT * FROM CustomMarkets WHERE poolId=?').bind(poolId),
+    env.DB.prepare('SELECT * FROM Memberships WHERE poolId=? AND user=?').bind(poolId, user),
+  ]);
+  const poolRow = poolRows[0] || null;
   const cfg = C.poolCfg(poolRow || {});
-  const matches = (await findRows(env, 'Matches', 'poolId', poolId)).filter(mt =>
+  const matches = allMatches.filter(mt =>
     String(mt.included).toUpperCase() === 'Y'
     && new Date(mt.kickoff) > now && new Date(mt.kickoff) <= horizon);
   const bk = (poolRow && poolRow.bookmaker) ? poolRow.bookmaker : C.DEFAULT_BOOKMAKER;
@@ -63,9 +70,9 @@ async function getMatches_(env, poolId, user){
     ).bind(bk, ...fids).all();
     (results || []).forEach(o => { oddsMap[o.fixtureId] = o.oddsJson; prevMap[o.fixtureId] = o.prevOddsJson; });
   }
-  const myBets = (await findRows(env, 'Bets', 'poolId', poolId)).filter(b => b.user === user);
+  const myBets = allBets.filter(b => b.user === user);
   const cmByFix = {};
-  (await findRows(env, 'CustomMarkets', 'poolId', poolId)).forEach(c => {
+  cms.forEach(c => {
     let outs = []; try { outs = JSON.parse(c.outcomesJson || '[]'); } catch(e){}
     (cmByFix[c.fixtureId] = cmByFix[c.fixtureId] || []).push({ cid: c.cid, name: c.name, result: c.result, outcomes: outs });
   });
@@ -83,17 +90,18 @@ async function getMatches_(env, poolId, user){
       myBets: bets.map(b => ({ marketType: b.marketType, outcomeId: b.outcomeId, stake: Number(b.stake), lockedOdds: Number(b.lockedOdds), result: b.result })),
     };
   }).sort((a,b) => new Date(a.kickoff) - new Date(b.kickoff));
-  const mem = await C.findMembership(env, poolId, user);
+  const mem = memRows[0] || null;
   return { minStake: cfg.minStake, maxStake: cfg.maxStake, step: cfg.minStake,
     currentPoints: mem ? Number(mem.currentPoints) : null, matches: list };
 }
 
 // 1 RPC for the whole pool view — matches + leaderboard + history.
 export async function getPoolView(env, token, poolId){
+  const time = async (name, p) => { const t = Date.now(); const r = await p; console.log(`[timing] ${name} ${Date.now() - t}ms`); return r; };  // ponytail: remove once perf triaged
   const [matches, leaderboard, history] = await Promise.all([
-    getMatches(env, token, poolId),
-    getLeaderboard(env, token, poolId),
-    getHistory(env, token, poolId),
+    time('  getMatches', getMatches(env, token, poolId)),
+    time('  getLeaderboard', getLeaderboard(env, token, poolId)),
+    time('  getHistory', getHistory(env, token, poolId)),
   ]);
   return { matches, leaderboard, history };
 }

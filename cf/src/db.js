@@ -43,6 +43,12 @@ export async function findRows(env, table, col, val){
   return results || [];
 }
 
+// Run independent prepared statements in ONE round-trip (D1 pipelines them). Returns the
+// results-array of each, in order. Only for queries that DON'T depend on each other's output.
+export async function batch(env, stmts){
+  return (await env.DB.batch(stmts)).map(r => r.results || []);
+}
+
 // Positional append (verbatim-port form): appendRow(env,'Users',[v0,v1,...]) in COLS order.
 export async function appendRow(env, table, arr){
   const cols = COLS[table];

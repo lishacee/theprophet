@@ -11,15 +11,18 @@ import * as social from './src/social.js';
 import * as admin from './src/admin.js';
 import { apiGet } from './src/api.js';
 
-// D1 shim: prepare().bind().first()/.all()/.run() over node:sqlite.
+// D1 shim: prepare().bind().first()/.all()/.run() + batch() over node:sqlite.
 function d1(db){
-  return { prepare(sql){ return {
-    _p: [],
-    bind(...a){ this._p = a; return this; },
-    async first(){ const r = db.prepare(sql).get(...this._p); return r === undefined ? null : r; },
-    async all(){ return { results: db.prepare(sql).all(...this._p) }; },
-    async run(){ const r = db.prepare(sql).run(...this._p); return { meta: { changes: r.changes } }; },
-  }; } };
+  return {
+    prepare(sql){ return {
+      _p: [],
+      bind(...a){ this._p = a; return this; },
+      async first(){ const r = db.prepare(sql).get(...this._p); return r === undefined ? null : r; },
+      async all(){ return { results: db.prepare(sql).all(...this._p) }; },
+      async run(){ const r = db.prepare(sql).run(...this._p); return { meta: { changes: r.changes } }; },
+    }; },
+    async batch(stmts){ return Promise.all(stmts.map(s => s.all())); },
+  };
 }
 const raw = new DatabaseSync(':memory:');
 raw.exec(readFileSync(new URL('./schema.sql', import.meta.url), 'utf8'));
