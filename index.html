@@ -181,6 +181,18 @@
     .ln{ background:var(--line-soft); color:var(--cyan); border:1px solid var(--line-bd);
       border-radius:9px; padding:3px 12px; font-size:15px; font-weight:900; letter-spacing:.2px; text-transform:none; }
     .odds-grid{ display:flex; gap:8px; }
+    /* kèo tỉ số chính xác: 2 stepper + ô đặt */
+    .cs-wrap{ display:flex; align-items:flex-end; gap:8px; flex-wrap:wrap; }
+    .cs-col{ flex:1; min-width:96px; }
+    .cs-team{ font-size:11.5px; font-weight:700; color:var(--mut); text-align:center; margin-bottom:6px; white-space:nowrap; overflow:hidden; text-overflow:ellipsis; }
+    .cs-stp{ display:flex; align-items:center; justify-content:center; gap:8px; }
+    .cs-b{ width:40px; height:40px; border-radius:12px; background:var(--card2); color:var(--txt); border:1px solid var(--line2); font-size:20px; font-weight:900; cursor:pointer; transition:.14s; }
+    .cs-b:hover:not(:disabled){ border-color:var(--cyan); }
+    .cs-b:disabled{ opacity:.35; cursor:default; }
+    .cs-n{ font-size:24px; font-weight:900; min-width:22px; text-align:center; }
+    .cs-pick{ flex:1; min-width:120px; display:flex; flex-direction:column; align-items:stretch; gap:4px; }
+    .cs-odd{ flex:none; }
+    .cs-na{ font-size:11px; color:var(--mut); text-align:center; }
     /* kèo custom nhiều cửa: tự chuyển sang lưới 2 cột cho dễ đọc (kèo 2-3 cửa giữ nguyên 1 hàng) */
     .odds-grid.grid2{ display:grid; grid-template-columns:1fr 1fr; }
     .odds-grid.grid2 .odd{ flex:none; }
@@ -626,7 +638,8 @@ var EXTRA_MKT_LIB=[
   {key:'corner_1h', label:'Tài/Xỉu góc – Hiệp 1', over:'Tài góc H1', under:'Xỉu góc H1', defLine:4.5},
   {key:'corner_ft', label:'Tài/Xỉu góc – Cả trận', over:'Tài góc', under:'Xỉu góc', defLine:9.5},
   {key:'card_ft', label:'Tài/Xỉu thẻ phạt – Cả trận', over:'Tài thẻ', under:'Xỉu thẻ', defLine:3.5},
-  {key:'btts', label:'2 đội ghi bàn – Cả trận', yn:true, yes:'Có', no:'Không'}
+  {key:'btts', label:'2 đội ghi bàn – Cả trận', yn:true, yes:'Có', no:'Không'},
+  {key:'cs', label:'Tỉ số chính xác', stepper:true}
 ];
 function isAdmin(){ return !!(ME && ME.isAdmin); }
 
@@ -728,7 +741,8 @@ function mockData(){
       odds:{ m1x2:{home:{oid:101,price:2.10},draw:{oid:102,price:3.30},away:{oid:103,price:3.20}},
              mou:{line:2.5,over:{oid:201,price:1.90},under:{oid:202,price:1.90}},
              mah:{line:-0.5,home:{oid:301,price:1.95},away:{oid:302,price:1.85}},
-             corner_ft:{line:9.5,over:{oid:'m1_cf_o',price:1.90},under:{oid:'m1_cf_u',price:1.90}} },
+             corner_ft:{line:9.5,over:{oid:'m1_cf_o',price:1.90},under:{oid:'m1_cf_u',price:1.90}},
+             cs:{marketId:10336,scores:[{oid:'cs00',label:'0-0',h:0,a:0,price:9.5},{oid:'cs10',label:'1-0',h:1,a:0,price:6.5},{oid:'cs11',label:'1-1',h:1,a:1,price:7.0},{oid:'cs21',label:'2-1',h:2,a:1,price:9.0},{oid:'cs20',label:'2-0',h:2,a:0,price:8.0}]} },
       myBets:[{marketType:'1x2',outcomeId:101,label:'Brazil',lockedOdds:2.10,stake:100,payout:0,result:''}],
       customMarkets:[{cid:'cm1',name:'Messi có ghi bàn?',locked:false,result:'',
         outcomes:[{oid:'cm1_y',label:'Có',price:2.00},{oid:'cm1_n',label:'Không',price:1.70}]}] },
@@ -1061,6 +1075,7 @@ function matchCard(m){
     // kèo mở rộng do admin bật cho cả sảnh (vd tài/xỉu góc) — cùng cấu hình cho mọi trận trong sảnh
     EXTRA_MKT_LIB.forEach(function(item){
       var eo=m.odds[item.key]; if(!eo) return;
+      if(item.stepper){ body+='<div class="mkt">'+esc(item.label)+'</div>'+csBlock(m,eo)+betLines(byMkt[item.key],m); return; }
       if(item.yn){
         body+='<div class="mkt">'+esc(item.label)+'</div><div class="odds-grid">'+
           oddBtnQ(m,item.key,eo.yes.oid,item.yes||'Có',eo.yes.price)+
@@ -1084,6 +1099,35 @@ function matchCard(m){
     '</div>'+
     '<div class="mc-body'+(collapsed?' collapsed':'')+'" id="mb_'+m.fixtureId+'">'+body+'</div>'+
   '</div>';
+}
+// Kèo tỉ số chính xác: stepper +/- cho mỗi đội -> tra tỷ lệ tỉ số đang ghép, bấm để đặt. Chỉ tỉ số bookmaker có giá mới đặt được.
+var CS_SEL={};
+function csMap(eo){ var mp={}; (eo.scores||[]).forEach(function(s){ mp[s.h+'-'+s.a]=s; }); return mp; }
+function csBounds(eo){ var mh=0,ma=0; (eo.scores||[]).forEach(function(s){ if(s.h>mh)mh=s.h; if(s.a>ma)ma=s.a; }); return {mh:mh,ma:ma}; }
+function csBlock(m,eo){
+  if(!CS_SEL[m.fixtureId]){ var f=(eo.scores||[])[0]||{h:0,a:0}; CS_SEL[m.fixtureId]={h:f.h,a:f.a}; }
+  return '<div class="cs-wrap" id="cs_'+m.fixtureId+'">'+csInner(m,eo)+'</div>';
+}
+function csInner(m,eo){
+  var sel=CS_SEL[m.fixtureId], b=csBounds(eo), sc=csMap(eo)[sel.h+'-'+sel.a];
+  function stepper(team,which,val,max){
+    var dis=m.open?'':'disabled';
+    return '<div class="cs-col"><div class="cs-team">'+esc(short(team))+'</div><div class="cs-stp">'+
+      '<button class="cs-b" '+dis+(val<=0?' disabled':'')+' onclick="csStep(\''+m.fixtureId+'\',\''+which+'\',-1)">−</button>'+
+      '<span class="cs-n">'+val+'</span>'+
+      '<button class="cs-b" '+dis+(val>=max?' disabled':'')+' onclick="csStep(\''+m.fixtureId+'\',\''+which+'\',1)">+</button></div></div>';
+  }
+  var priced=sc&&m.open;
+  var odd=sc
+    ? '<button class="odd cs-odd" '+(m.open?'':'disabled')+' onclick="pick(\''+m.fixtureId+'\',\'cs\',\''+sc.oid+'\','+sc.price+')"><span class="lbl">'+sel.h+':'+sel.a+'</span><span class="val">'+sc.price+'</span></button>'
+    : '<button class="odd cs-odd" disabled><span class="lbl">'+sel.h+':'+sel.a+'</span><span class="val">—</span></button>';
+  return stepper(m.team1,'h',sel.h,b.mh)+stepper(m.team2,'a',sel.a,b.ma)+'<div class="cs-pick">'+odd+(sc?'':'<span class="cs-na">Bookmaker chưa ra tỉ số này</span>')+'</div>';
+}
+function csStep(fid,which,delta){
+  var m=MATCHES.filter(function(x){return x.fixtureId===fid;})[0]; if(!m||!m.odds.cs) return;
+  var b=csBounds(m.odds.cs), s=CS_SEL[fid];
+  s[which]=Math.max(0,Math.min(which==='h'?b.mh:b.ma,(s[which]||0)+delta));
+  var box=el('cs_'+fid); if(box) box.innerHTML=csInner(m,m.odds.cs);
 }
 // Kèo tự ra ở tab Trận đấu: hiển thị GIỐNG kèo thường (tên kèo + ô cửa cược). Admin có nút sửa/xoá nhỏ.
 // Trận đã bắt đầu -> rời tab này sang tab Kết quả; việc chấm kết quả nằm ở đó.
@@ -1119,7 +1163,7 @@ function mktDisplayName(mtype){
 // Nhãn NGẮN cho badge kèo (cửa cược đã ghi rõ loại rồi, badge chỉ cần họ kèo).
 function mktTag(mtype){
   if(mtype==='1x2') return '1X2'; if(mtype==='ou') return 'Tài/Xỉu'; if(mtype==='ah') return 'Chấp';
-  if(mtype==='corner_1h'||mtype==='corner_ft') return 'Góc'; if(mtype==='card_ft') return 'Thẻ'; if(mtype==='btts') return 'BTTS';
+  if(mtype==='corner_1h'||mtype==='corner_ft') return 'Góc'; if(mtype==='card_ft') return 'Thẻ'; if(mtype==='btts') return 'BTTS'; if(mtype==='cs') return 'Tỉ số';
   if(mtype&&mtype.indexOf('c_')===0) return 'Custom';
   return mtype;
 }
@@ -1270,6 +1314,7 @@ function outcomeLabel(m, mtype, oid){
     if(ccm){ var coc=(ccm.outcomes||[]).filter(function(x){return eq(x.oid,oid);})[0]; return coc?coc.label:''; } return ''; }
   var extLib=EXTRA_MKT_LIB.filter(function(it){return it.key===mtype;})[0];
   if(extLib){ var eo=m&&m.odds&&m.odds[mtype]; if(eo){
+      if(extLib.stepper){ var s=(eo.scores||[]).filter(function(x){return eq(x.oid,oid);})[0]; return s?('Tỉ số '+s.h+':'+s.a):''; }
       if(extLib.yn){ if(eq(oid,eo.yes.oid)) return extLib.yes||'Có'; if(eq(oid,eo.no.oid)) return extLib.no||'Không'; return ''; }
       if(eq(oid,eo.over.oid)) return 'Tài '+eo.line; if(eq(oid,eo.under.oid)) return 'Xỉu '+eo.line; } return ''; }
   var o=m&&m.odds; if(!o) return '';

@@ -39,6 +39,8 @@ export async function settleMatches(env){
       let res;
       if (String(b.marketType) === 'btts') {
         res = C.gradeBtts(b, mt.score);   // 2 đội ghi bàn: từ tỉ số
+      } else if (String(b.marketType) === 'cs') {
+        res = C.gradeCS(await C.csLabel(env, Number(b.outcomeId)), mt.score);   // tỉ số chính xác: từ tỉ số
       } else if (C.EXTRA_KEYS.indexOf(String(b.marketType)) >= 0) {
         if (!sofaTried) { sofa = await sofaStats(env, mt.fixtureId); sofaTried = true; }
         res = C.gradeExtra(b, sofa, await C.midLine(env, Number(b.marketId)));

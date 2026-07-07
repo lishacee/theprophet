@@ -91,6 +91,22 @@ eq(C.gradeBtts({ marketId: 104, outcomeId: 105 }, '2-0'), 'WIN', 'Không: 2-0 ->
 eq(C.gradeBtts({ marketId: 104, outcomeId: 105 }, '3-2'), 'LOSE', 'Không: 3-2 cả hai ghi -> thua');
 eq(C.gradeBtts({ marketId: 104, outcomeId: 104 }, ''), 'UNDECIDED', 'chưa có tỉ số -> UNDECIDED');
 
+// gradeCS: tỉ số chính xác. betLabel "h-a" (từ catalog) vs tỉ số thật "a-b".
+eq(C.gradeCS('2-0', '2-0'), 'WIN', 'cs: đoán đúng 2-0');
+eq(C.gradeCS('2-0', '2-1'), 'LOSE', 'cs: đoán 2-0 nhưng 2-1');
+eq(C.gradeCS('2-0', '9-0'), 'LOSE', 'cs: tỉ số thật ngoài lưới -> thua');
+eq(C.gradeCS('2-0', ''), 'UNDECIDED', 'cs: chưa có tỉ số -> UNDECIDED');
+eq(C.gradeCS(null, '2-0'), 'LOSE', 'cs: cửa không map được label -> thua');
+assert.deepStrictEqual(C.parseScore('3:1'), { h: 3, a: 1 }, 'parseScore "h:a"');
+assert.strictEqual(C.parseScore('x'), null, 'parseScore rác -> null');
+// buildOdds kind:cs -> chỉ cửa có giá, label "h-a"
+{
+  const cat = { 'correctscore|fulltime': [{ mid: 10336, oids: [1, 2, 3], names: { 1: '0:0', 2: '1:0', 3: '2:1' } }] };
+  const mk = { 10336: { outcomes: { 1: { players: { 0: { price: 8.5 } } }, 3: { players: { 0: { price: 12 } } } } } };
+  const o = C.buildOdds(mk, cat, {});
+  assert.deepStrictEqual(o.cs.scores, [{ oid: 1, label: '0-0', h: 0, a: 0, price: 8.5 }, { oid: 3, label: '2-1', h: 2, a: 1, price: 12 }], 'cs: bỏ cửa không giá (oid 2)');
+}
+
 // gradeStd: chấm 1x2/ou/ah từ tỉ số (thay /settlements). score "a-b" (chủ-khách).
 // 1x2: oid 102=hòa, 103=khách, khác=chủ
 eq(C.gradeStd({ marketType:'1x2', outcomeId:101, marketId:101 }, '2-0'), 'WIN', '1x2 chủ thắng');

@@ -75,9 +75,7 @@ export default {
     const handler = REGISTRY[fn];
     if (!handler) return json(env, { ok:false, error:'Unknown fn: ' + fn }, 404);
     try {
-      const t0 = Date.now();
       const data = await handler(env, ...args);
-      console.log(`[timing] ${fn} ${Date.now() - t0}ms`);  // ponytail: remove once perf triaged
       return json(env, { ok:true, data });
     } catch (e) {
       // Business errors carry Vietnamese messages the UI shows verbatim.

@@ -7,12 +7,12 @@ export const START_MULTIPLIER = 1.1;
 export const POINTS_PER_MATCH = 400;
 export const NOSHOW_PENALTY = 200;
 export const DEFAULT_BOOKMAKER = 'pinnacle';
-export const MARKETS_CACHE_KEY = 'markets_index_v2';   // v2: thêm family bothteamsscore -> buộc dựng lại catalog
+export const MARKETS_CACHE_KEY = 'markets_index_v3';   // v3: thêm family correctscore (+ names/oid) -> buộc dựng lại catalog
 
 export const EXTRA_KEYS = ['corner_ft', 'corner_1h', 'card_ft'];    // over/under, chấm từ SofaScore
 export const OU_KIND_LABEL = { ou: 'bàn', corner_ft: 'góc', corner_1h: 'góc H1', card_ft: 'thẻ' };
 // Kèo admin bật/tắt cho sảnh. btts (2 đội ghi bàn) là yes/no, chấm từ tỉ số -> tách khỏi EXTRA_KEYS.
-export const TOGGLE_KEYS = EXTRA_KEYS.concat(['btts']);
+export const TOGGLE_KEYS = EXTRA_KEYS.concat(['btts', 'cs']);   // cs = tỉ số chính xác (correctscore), chấm từ tỉ số
 export const BADGE_PRIORITY = ['prophet','demonking','lonewolf','ximup','sharpshooter','ahdog','oudog','underdog','contrarian','onfire'];
 export const BADGE_BAD = ['bot','coldstreak'];
 
@@ -133,6 +133,7 @@ export const MKT_FAMILIES = [
   { key: 'corner_1h', type: 'totals-corners',  period: 'p1',       kind: 'ou', lineFilter: 'half', lock: 'always' },
   { key: 'card_ft',   type: 'totals-bookings', period: 'fulltime', kind: 'ou', lineFilter: 'half', lock: 'always' },
   { key: 'btts',      type: 'bothteamsscore',  period: 'fulltime', kind: 'yn' },   // 2 đội ghi bàn (mid 104, yes/no), chấm từ tỉ số 2 hiệp chính
+  { key: 'cs',        type: 'correctscore',    period: 'fulltime', kind: 'cs' },   // tỉ số chính xác (mid 10336, oid->"h:a"), chấm từ tỉ số 2 hiệp chính
 ];
 // fulltime góc/thẻ = 1ST+2ND (KHÔNG dùng ALL — ALL gộp cả hiệp phụ ET1/ET2).
 export const EXTRA_STAT = { corner_ft: [['1ST','2ND'], 'corner'], corner_1h: [['1ST'], 'corner'], card_ft: [['1ST','2ND'], 'card'] };
@@ -156,6 +157,15 @@ export function buildOdds(markets, catalog, forced){
       const L = lines[0], o = L.oids;
       const h = price(L.mid, o[0]), d = price(L.mid, o[1]), a = price(L.mid, o[2]);
       if (h && d && a) out[fam.key] = { marketId: L.mid, home: { oid: o[0], price: h }, draw: { oid: o[1], price: d }, away: { oid: o[2], price: a } };
+      return;
+    }
+    if (fam.kind === 'cs') {   // tỉ số: giữ MỌI cửa có giá, label "h:a" từ catalog.names
+      const L = lines[0], scores = [];
+      (L.oids || []).forEach(oid => {
+        const p = price(L.mid, oid), s = parseScore(L.names && L.names[oid]);
+        if (p && s) scores.push({ oid, label: s.h + '-' + s.a, h: s.h, a: s.a, price: p });
+      });
+      if (scores.length) out[fam.key] = { marketId: L.mid, scores };
       return;
     }
     let chosen = null;
@@ -230,6 +240,21 @@ export function gradeBtts(b, score){
   return (isYes === both) ? 'WIN' : 'LOSE';
 }
 
+// Tách "h:a" | "h-a" -> {h,a} (dùng cho catalog correctscore + gradeCS). null nếu không parse được.
+export function parseScore(s){
+  const m = /^\s*(\d+)\D+(\d+)\s*$/.exec(String(s == null ? '' : s));
+  return m ? { h: Number(m[1]), a: Number(m[2]) } : null;
+}
+
+// Chấm kèo tỉ số chính xác từ tỉ số 2 hiệp chính. betLabel = "h-a" của cửa đã cược (từ catalog).
+// score dạng "a-b". Không parse được score -> UNDECIDED; tỉ số thật ngoài lưới/khác cửa -> LOSE.
+export function gradeCS(betLabel, score){
+  const bet = parseScore(betLabel), real = parseScore(score);
+  if (!real) return 'UNDECIDED';
+  if (!bet) return 'LOSE';
+  return (bet.h === real.h && bet.a === real.a) ? 'WIN' : 'LOSE';
+}
+
 // Chấm 1 phía kèo Á (AH/OU) từ BIÊN g = (bàn có lợi) - (bàn cần), theo bước 0.25.
 // g là bội của 0.25 (bàn thắng nguyên ± vạch .0/.5/.25/.75). Vạch nguyên -> có PUSH;
 // vạch nửa -> chỉ WIN/LOSE; vạch tư (0.25/0.75) -> tách đôi -> HALFWIN/HALFLOSS.
@@ -284,6 +309,14 @@ export async function midLine(env, mid, catalog){
   return undefined;
 }
 
+// oid kèo tỉ số -> nhãn "h-a" từ catalog.names. Dùng khi chấm (settle) & dựng nhãn bet.
+export async function csLabel(env, oid, catalog){
+  const idx = catalog || await cacheGet(env, MARKETS_CACHE_KEY, 90 * 86400000);
+  const lines = idx && idx['correctscore|fulltime']; if (!lines || !lines.length) return null;
+  const s = parseScore(lines[0].names && lines[0].names[oid]);
+  return s ? s.h + '-' + s.a : null;
+}
+
 // Nhãn kèo dựng TỪ dòng bet + tên đội. ctx (tùy chọn) = { catalog, cmByCid } đã prefetch để
 // tránh N+1 DB read khi gọi hàng loạt (getHistory); không có ctx thì tự đọc DB như cũ.
 export async function betLabel(env, b, t1, t2, ctx){
@@ -298,6 +331,7 @@ export async function betLabel(env, b, t1, t2, ctx){
   if (mt === '1x2') return oid === 102 ? 'Hòa' : (oid === 103 ? t2 : t1);
   if (mt === 'btts') return '2 đội ghi bàn: ' + (oid === mid ? 'Có' : 'Không');
   const cat = ctx && ctx.catalog;
+  if (mt === 'cs') { const l = await csLabel(env, oid, cat); return 'Tỉ số ' + (l ? l.replace('-', ':') : '?'); }
   if (OU_KIND_LABEL[mt]) { const ln = await midLine(env, mid, cat); return (oid === mid ? 'Tài ' : 'Xỉu ') + OU_KIND_LABEL[mt] + (ln != null ? ' ' + ln : ''); }
   if (mt === 'ah') {
     const al = await midLine(env, mid, cat);

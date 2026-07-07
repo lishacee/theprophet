@@ -97,11 +97,10 @@ async function getMatches_(env, poolId, user){
 
 // 1 RPC for the whole pool view — matches + leaderboard + history.
 export async function getPoolView(env, token, poolId){
-  const time = async (name, p) => { const t = Date.now(); const r = await p; console.log(`[timing] ${name} ${Date.now() - t}ms`); return r; };  // ponytail: remove once perf triaged
   const [matches, leaderboard, history] = await Promise.all([
-    time('  getMatches', getMatches(env, token, poolId)),
-    time('  getLeaderboard', getLeaderboard(env, token, poolId)),
-    time('  getHistory', getHistory(env, token, poolId)),
+    getMatches(env, token, poolId),
+    getLeaderboard(env, token, poolId),
+    getHistory(env, token, poolId),
   ]);
   return { matches, leaderboard, history };
 }
@@ -143,7 +142,7 @@ export async function placeBet(env, token, poolId, fixtureId, marketType, outcom
     const odds = JSON.parse(oddsRow.oddsJson);
     const okey = marketType === '1x2' ? 'm1x2' : marketType === 'ou' ? 'mou' : marketType === 'ah' ? 'mah' : marketType;
     const e = odds[okey]; if (!e) throw new Error('Chưa có kèo này');
-    const sels = ['home','draw','away','over','under','yes','no'].map(k => e[k]).filter(Boolean);
+    const sels = e.scores || ['home','draw','away','over','under','yes','no'].map(k => e[k]).filter(Boolean);   // cs: mảng tỉ số; còn lại: các cửa cố định
     const sel = sels.filter(x => String(x.oid) === String(outcomeId))[0];
     if (!sel) throw new Error('Cửa cược không hợp lệ');
     lockedOdds = sel.price; marketId = e.marketId; nOutcomes = sels.length;

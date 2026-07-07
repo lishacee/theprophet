@@ -111,3 +111,7 @@ renders offline — keep `mockRun` shapes in sync with real Worker responses whe
   `wrangler d1 insights` for slow queries.
 - Never commit secrets: `api-key.txt`, `.dev.vars`, `prophet-export.json`, `seed.sql` are gitignored
   (the last two contain user passHash/salt/token dumps).
+- **Manual API checks:** gitignored `api-key.txt` (repo root) holds keys for ad-hoc curl checks —
+  line 1 = OddsPapi key, line 2 = ScraperAPI key. May lag the live `ODDSPAPI_KEYS`/`SCRAPERAPI_KEYS`
+  wrangler secrets (keys rotate); a 401 `INVALID_API_KEY` means this file is stale — refresh it from
+  the current secret. Live catalog check: `curl "https://api.oddspapi.io/v4/markets?sportId=10&apiKey=$KEY"`.

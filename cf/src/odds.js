@@ -12,7 +12,9 @@ async function marketsIndex(env){
   const idx = {};
   (Array.isArray(data) ? data : []).forEach(m => {
     const k = m.marketType + '|' + m.period; if (!want[k]) return;
-    (idx[k] = idx[k] || []).push({ mid: m.marketId, hcap: m.handicap, oids: (m.outcomes || []).map(o => o.outcomeId) });
+    const entry = { mid: m.marketId, hcap: m.handicap, oids: (m.outcomes || []).map(o => o.outcomeId) };
+    if (m.marketType === 'correctscore') { entry.names = {}; (m.outcomes || []).forEach(o => entry.names[o.outcomeId] = o.outcomeName); }
+    (idx[k] = idx[k] || []).push(entry);
   });
   await cachePut(env, C.MARKETS_CACHE_KEY, idx);
   return idx;
