@@ -27,13 +27,14 @@ export async function settleMatches(env){
       if (ft && ft.participant1Score != null) {
         mt.score = ft.participant1Score + '-' + ft.participant2Score;   // giữ local để chấm btts ngay lượt này
         await updateRow(env, 'Matches', { poolId: mt.poolId, fixtureId: mt.fixtureId }, { score: mt.score });
-      } else if (new Date(mt.kickoff) >= new Date(now - 4 * 3600000)) {
-        continue; // chưa hết 2 hiệp -> chờ tick sau (an toàn tới 4h)
+      } else if (new Date(mt.kickoff) >= new Date(now - C.STUCK_MANUAL_HOURS * 3600000)) {
+        continue; // chưa hết 2 hiệp -> chờ tick sau (an toàn tới STUCK_MANUAL_HOURS)
       }
     }
     // score rỗng (>4h vẫn chưa có tỉ số) -> std/btts sẽ UNDECIDED; corner/card vẫn chấm từ SofaScore.
     const bets = (await readAll(env, 'Bets')).filter(b => b.poolId === mt.poolId && b.fixtureId === mt.fixtureId && !b.result && String(b.marketType).indexOf('c_') !== 0);
     let anyUndecided = false;
+    const stuck = [];
     let sofa, sofaTried = false;
     for (const b of bets) {
       let res;
@@ -47,7 +48,7 @@ export async function settleMatches(env){
       } else {
         res = C.gradeStd(b, mt.score, await C.midLine(env, Number(b.marketId)));  // 1x2/ou/ah: tự tính từ tỉ số (thay /settlements)
       }
-      if (!res || res === 'UNDECIDED') { anyUndecided = true; continue; }
+      if (!res || res === 'UNDECIDED') { anyUndecided = true; stuck.push(String(b.marketType)); continue; }
       const stake = Number(b.stake), odds = Number(b.lockedOdds); let payout = 0;
       if (res === 'WIN') payout = stake * odds;
       else if (res === 'HALFWIN') payout = stake * (1 + (odds - 1) / 2);
@@ -58,8 +59,12 @@ export async function settleMatches(env){
       await addPoints(env, mt.poolId, b.user, payout);
     }
     if (!anyUndecided) await updateRow(env, 'Matches', { poolId: mt.poolId, fixtureId: mt.fixtureId }, { settled: 'Y' });
-    else if (new Date(mt.kickoff) < new Date(now - C.STUCK_MANUAL_HOURS * 3600000)) // quá lâu -> chốt, giao admin chấm tay
-      await updateRow(env, 'Matches', { poolId: mt.poolId, fixtureId: mt.fixtureId }, { settled: 'Y' });
+    else {
+      const forced = new Date(mt.kickoff) < new Date(now - C.STUCK_MANUAL_HOURS * 3600000); // quá lâu -> chốt, giao admin chấm tay
+      const why = !mt.score ? 'chưa có tỉ số' : (stuck.some(m => C.EXTRA_KEYS.indexOf(m) >= 0) && !sofa) ? 'sofaStats null (map/scrape fail)' : 'line/stats thiếu';
+      console.warn(`[settle] ${mt.poolId}/${mt.fixtureId} ${forced ? 'HẾT ' + C.STUCK_MANUAL_HOURS + 'h -> đóng, bet còn UNDECIDED cần admin chấm tay' : 'chưa chốt'} | markets: ${[...new Set(stuck)].join(',')} | ${why}`);
+      if (forced) await updateRow(env, 'Matches', { poolId: mt.poolId, fixtureId: mt.fixtureId }, { settled: 'Y' });
+    }
   }
 }
 

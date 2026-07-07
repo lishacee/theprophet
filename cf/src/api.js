@@ -69,13 +69,19 @@ function scraperKeys(env){
 async function scraperGet(env, targetUrl){
   const keys = scraperKeys(env);
   if (!keys.length) { console.error('scraperGet: Chưa cấu hình SCRAPERAPI_KEYS'); return null; }
-  const enc = encodeURIComponent(targetUrl); let lastErr;
+  const enc = encodeURIComponent(targetUrl); const errs = [];
   for (let i = 0; i < keys.length; i++) {
+    const label = `key #${i + 1} (${maskKey(keys[i])})`;
     const resp = await fetch('https://api.scraperapi.com/?api_key=' + keys[i] + '&url=' + enc);
-    if (resp.status === 200) { try { return await resp.json(); } catch(e){ return null; } }
-    lastErr = 'HTTP ' + resp.status;
+    if (resp.status === 200) {
+      if (i > 0) console.log(`ScraperAPI: ${label} OK (bỏ qua ${i} key hỏng phía trước)`);
+      try { return await resp.json(); } catch(e){ return null; }
+    }
+    const keyErr = (resp.status === 401 || resp.status === 403) ? `HTTP ${resp.status} (key hết hạn/hết credit/không hợp lệ)` : `HTTP ${resp.status}`;
+    console.error(`ScraperAPI ${label} -> ${keyErr} — chuyển key kế`);
+    errs.push(`${label}: ${keyErr}`);
   }
-  console.error('scraperGet ' + targetUrl + ': ' + lastErr + ' (hết key)');
+  console.error(`ScraperAPI ${targetUrl}: hết ${keys.length} key khả dụng [${errs.join(' | ')}]`);
   return null;
 }
 
@@ -83,19 +89,25 @@ async function scraperGet(env, targetUrl){
 export async function sofaStats(env, fixtureId){
   const ck = 'sofa_id2_' + fixtureId;
   let sid = await cacheGet(env, ck, 90 * 86400000);
+  if (sid === 0) sid = await cacheGet(env, ck, 3600000);  // 0 = "chưa map được": chỉ giữ 1h rồi thử lại (đủ để auto-retry map vài lần trong cửa sổ STUCK_MANUAL_HOURS=3h; OddsPapi hay backfill sofascoreId sau, hoặc key/search hết lỗi) -> tự lành, khỏi xoá cache tay
   if (sid == null) {
     let f;
     try { f = await apiGet(env, '/fixture?fixtureId=' + encodeURIComponent(fixtureId)); }
     catch (e) { console.error('sofa fixture ' + fixtureId + ': ' + e.message); return null; }
     sid = (f && f.externalProviders && f.externalProviders.sofascoreId) || 0;
-    if (!sid && f) sid = (await sofaSearch(env, f.participant1Name, f.participant2Name, f.startTime)) || 0;
+    if (!sid && f) {
+      const found = await sofaSearch(env, f.participant1Name, f.participant2Name, f.startTime);
+      if (found === undefined) return null;   // search fail vì scraper tạm thời (key/infra) -> ĐỪNG cache 0 (khỏi đầu độc 1h), retry lượt sau khi key hồi
+      sid = found || 0;                        // null = search chạy nhưng không khớp -> map thất bại thật -> cache 0
+    }
     await cachePut(env, ck, sid);
   }
-  if (!sid) return null;
+  if (!sid) { console.warn('sofaStats ' + fixtureId + ': không map được sofascoreId (sid=0) -> góc/thẻ UNDECIDED. Tra id tay hoặc chờ auto-retry 1h'); return null; }
   return scraperGet(env, 'https://api.sofascore.com/api/v1/event/' + sid + '/statistics');
 }
 async function sofaSearch(env, t1, t2, startTime){
   const kick = parseApiTime(startTime); if (!kick || !t1 || !t2) return null;
   const res = await scraperGet(env, 'https://api.sofascore.com/api/v1/search/all?q=' + encodeURIComponent(t1 + ' ' + t2) + '&page=0');
-  return sofaPick((res && res.results) || [], t1, t2, kick.getTime());
+  if (res == null) return undefined;   // scrape lỗi (key chết/infra) -> tín hiệu TẠM THỜI, khác "search chạy nhưng không khớp"
+  return sofaPick(res.results || [], t1, t2, kick.getTime());
 }

@@ -122,7 +122,7 @@ export function stdOutcomes(oddsJson, marketType, t1, t2){
 // ---- odds/settlement pure logic (ported from Code.js; unit-tested in test_core.mjs) ----
 export const SPORT_ID_SOCCER = 10;
 export const FETCH_WINDOW_HOURS = 24;
-export const STUCK_MANUAL_HOURS = 4;
+export const STUCK_MANUAL_HOURS = 3;   // sau ngần này giờ từ kickoff -> ngừng chờ/scrape, chốt & giao admin chấm tay (tiết kiệm request scraper)
 
 // "Họ kèo" build vào oddsJson. Vạch suy ra động từ /markets catalog.
 export const MKT_FAMILIES = [
