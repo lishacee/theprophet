@@ -230,6 +230,35 @@ export function gradeBtts(b, score){
   return (isYes === both) ? 'WIN' : 'LOSE';
 }
 
+// Chấm 1 phía kèo Á (AH/OU) từ BIÊN g = (bàn có lợi) - (bàn cần), theo bước 0.25.
+// g là bội của 0.25 (bàn thắng nguyên ± vạch .0/.5/.25/.75). Vạch nguyên -> có PUSH;
+// vạch nửa -> chỉ WIN/LOSE; vạch tư (0.25/0.75) -> tách đôi -> HALFWIN/HALFLOSS.
+export function gradeAsian(g){
+  if (g >  0.499) return 'WIN';
+  if (g < -0.499) return 'LOSE';
+  if (g >  0.001) return 'HALFWIN';   // g == +0.25 (nửa thắng, nửa hòa)
+  if (g < -0.001) return 'HALFLOSS';  // g == -0.25 (nửa thua, nửa hòa)
+  return 'PUSH';                       // g == 0 (chỉ xảy ra ở vạch nguyên)
+}
+
+// Chấm kèo CHUẨN (1x2/ou/ah) TỪ TỈ SỐ 2 hiệp chính — thay cho OddsPapi /settlements (thuần & test được).
+// score "a-b" (a=chủ,b=khách). line=midLine(marketId): ah=chấp ĐỘI CHỦ, ou=vạch tổng bàn (1x2 không cần).
+// Quy ước oid: 1x2 102=hòa,103=khách,khác=chủ; ou over.oid==marketId; ah home.oid==marketId.
+export function gradeStd(b, score, line){
+  const m = /^\s*(\d+)\D+(\d+)\s*$/.exec(String(score || ''));
+  if (!m) return 'UNDECIDED';
+  const a = Number(m[1]), c = Number(m[2]), d = a - c;
+  const mt = String(b.marketType), oid = Number(b.outcomeId), mid = Number(b.marketId);
+  if (mt === '1x2') {
+    const win = oid === 102 ? d === 0 : (oid === 103 ? d < 0 : d > 0);
+    return win ? 'WIN' : 'LOSE';
+  }
+  if (line == null) return 'UNDECIDED';
+  if (mt === 'ou') { const total = a + c; return gradeAsian(oid === mid ? total - line : line - total); }
+  if (mt === 'ah') { return gradeAsian(oid === mid ? d + line : -d - line); }
+  return 'UNDECIDED';
+}
+
 // ---- DB-backed shared helpers ----
 export async function findMembership(env, poolId, user){
   return await env.DB.prepare(`SELECT * FROM Memberships WHERE poolId=? AND user=?`).bind(poolId, user).first() || null;

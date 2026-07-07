@@ -106,6 +106,17 @@ const lb = await social.getLeaderboard(env, alice.token, poolId);
 assert.strictEqual(lb.length, 1, 'one member');
 assert.strictEqual(lb[0].points, 240, 'lb points 240');
 
+// getPools: GROUP BY count + per-user (indexed) lookup
+const pl = (await pools.getPools(env, alice.token)).find(p => p.poolId === poolId);
+assert.ok(pl && pl.joined && pl.members === 1 && pl.currentPoints === 240, 'getPools: joined, 1 member, 240pts');
+// getMatches: odds scoped to horizon fixtures via IN-list
+const mv = await pools.getMatches(env, alice.token, poolId);
+assert.ok(mv.matches.length === 1 && mv.matches[0].odds.m1x2.home.price === 2.0, 'getMatches: f1 odds via IN-list');
+assert.strictEqual(mv.matches[0].myBets.length, 1, 'getMatches: my 1x2 bet present');
+// getCrowd: per-fixture PK odds lookup; alice bet -> unlocked, open
+const cr = await social.getCrowd(env, alice.token, poolId, 'f1');
+assert.ok(!cr.locked && cr.open && cr.agg.some(a => a.marketType === '1x2'), 'getCrowd: unlocked, 1x2 aggregate');
+
 // admin manual-settle the 1x2 market: home wins -> alice WIN, payout 200*2=400
 await admin.adminSettleStdMarket(env, boss.token, poolId, 'f1', '1x2', 101);
 const afterBal = Number(raw.prepare(`SELECT currentPoints c FROM Memberships WHERE user='alice'`).get().c);

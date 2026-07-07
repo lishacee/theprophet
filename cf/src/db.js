@@ -20,14 +20,25 @@ export const COLS = {
 // Sheets stored Dates/numbers as strings; keep that — store everything as TEXT.
 function s(v){ return v == null ? '' : (v instanceof Date ? v.toISOString() : String(v)); }
 
+// Table + column names are interpolated (SQLite can't bind identifiers), so gate them
+// against COLS before they reach the SQL string. Values are always bound via ?/.bind().
+function ident(table, cols){
+  const known = COLS[table];
+  if (!known) throw new Error('Unknown table: ' + table);
+  for (const c of (cols || [])) if (known.indexOf(c) < 0) throw new Error('Unknown column: ' + table + '.' + c);
+}
+
 export async function readAll(env, table){
+  ident(table);
   const { results } = await env.DB.prepare(`SELECT * FROM ${table}`).all();
   return results || [];
 }
 export async function findRow(env, table, col, val){
-  return await env.DB.prepare(`SELECT * FROM ${table} WHERE ${col}=?`).bind(s(val)).first() || null;
+  ident(table, [col]);
+  return await env.DB.prepare(`SELECT * FROM ${table} WHERE ${col}=? LIMIT 1`).bind(s(val)).first() || null;
 }
 export async function findRows(env, table, col, val){
+  ident(table, [col]);
   const { results } = await env.DB.prepare(`SELECT * FROM ${table} WHERE ${col}=?`).bind(s(val)).all();
   return results || [];
 }
@@ -40,11 +51,13 @@ export async function appendRow(env, table, arr){
 }
 export async function insertRow(env, table, obj){
   const cols = Object.keys(obj);
+  ident(table, cols);
   const sql = `INSERT INTO ${table}(${cols.join(',')}) VALUES(${cols.map(()=>'?').join(',')})`;
   await env.DB.prepare(sql).bind(...cols.map(c=> s(obj[c]))).run();
 }
 // keyObj = the row's primary-key columns, e.g. {poolId, user}. patch = {col:val,...}.
 export async function updateRow(env, table, keyObj, patch){
+  ident(table, Object.keys(patch).concat(Object.keys(keyObj)));
   const set = Object.keys(patch).map(c=> `${c}=?`).join(',');
   const where = Object.keys(keyObj).map(c=> `${c}=?`).join(' AND ');
   const sql = `UPDATE ${table} SET ${set} WHERE ${where}`;
@@ -52,6 +65,7 @@ export async function updateRow(env, table, keyObj, patch){
     .bind(...Object.values(patch).map(s), ...Object.values(keyObj).map(s)).run();
 }
 export async function deleteRow(env, table, keyObj){
+  ident(table, Object.keys(keyObj));
   const where = Object.keys(keyObj).map(c=> `${c}=?`).join(' AND ');
   await env.DB.prepare(`DELETE FROM ${table} WHERE ${where}`).bind(...Object.values(keyObj).map(s)).run();
 }

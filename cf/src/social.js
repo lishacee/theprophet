@@ -181,7 +181,7 @@ export async function getSeasons(env, token, poolId){
 
 export async function getCrowd(env, token, poolId, fixtureId){
   const user = await authUser(env, token);
-  const mt = (await findRows(env, 'Matches', 'poolId', poolId)).filter(m => String(m.fixtureId) === String(fixtureId))[0];
+  const mt = await env.DB.prepare('SELECT * FROM Matches WHERE poolId=? AND fixtureId=?').bind(poolId, String(fixtureId)).first();
   if (!mt) throw new Error('Trận không tồn tại');
   const open = new Date(mt.kickoff) > new Date();
   const bets = (await findRows(env, 'Bets', 'poolId', poolId)).filter(b => String(b.fixtureId) === String(fixtureId));
@@ -190,7 +190,7 @@ export async function getCrowd(env, token, poolId, fixtureId){
 
   const poolRow = await findRow(env, 'Pools', 'poolId', poolId);
   const bk = (poolRow && poolRow.bookmaker) ? poolRow.bookmaker : C.DEFAULT_BOOKMAKER;
-  const oddsRow = (await findRows(env, 'Odds', 'bookmaker', bk)).filter(o => o.fixtureId === fixtureId)[0];
+  const oddsRow = await env.DB.prepare('SELECT * FROM Odds WHERE bookmaker=? AND fixtureId=?').bind(bk, String(fixtureId)).first();
   const labels = C.crowdLabels(oddsRow ? oddsRow.oddsJson : null, mt.team1, mt.team2);
   const lbl = async b => (await C.betLabel(env, b, mt.team1, mt.team2)) || labels[b.marketType + '_' + b.outcomeId] || ('#' + b.outcomeId);
 

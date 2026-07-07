@@ -32,6 +32,7 @@ CREATE TABLE IF NOT EXISTS Memberships (
   joinAt TEXT, startingPoints TEXT, currentPoints TEXT, pinnedBadges TEXT, blocked TEXT,
   PRIMARY KEY (poolId, user)
 );
+CREATE INDEX IF NOT EXISTS ix_memberships_user ON Memberships(user);  -- getPools: per-user lookup (user is 2nd PK col, not a usable prefix)
 
 CREATE TABLE IF NOT EXISTS Matches (
   poolId TEXT, fixtureId TEXT,
@@ -55,6 +56,7 @@ CREATE TABLE IF NOT EXISTS Bets (
 );
 CREATE INDEX IF NOT EXISTS ix_bets_pool ON Bets(poolId);
 CREATE INDEX IF NOT EXISTS ix_bets_pool_user ON Bets(poolId, user);
+CREATE INDEX IF NOT EXISTS ix_bets_pool_fixture ON Bets(poolId, fixtureId);  -- settle/refund by (pool,fixture)
 
 CREATE TABLE IF NOT EXISTS Exemptions (
   poolId TEXT, user TEXT, fixtureId TEXT,

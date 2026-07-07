@@ -1,13 +1,10 @@
-// Auto-settlement + no-show penalty. Port of Code.js settleMatches/lookupResult_/
-// applyNoShowPenalty. Corner/card graded from SofaScore (OddsPapi returns UNDECIDED).
-// Membership point changes use atomic +=/-= so concurrent placeBet can't clobber them.
+// Auto-settlement + no-show penalty. 1x2/ou/ah graded locally from the fulltime score
+// (C.gradeStd — replaces the slow OddsPapi /settlements call); btts from score; corner/card
+// from SofaScore stats. Membership point changes use atomic +=/-= so concurrent placeBet can't clobber them.
 import { readAll, updateRow } from './db.js';
 import { apiGet, sofaStats } from './api.js';
 import * as C from './core.js';
 
-function lookupResult(markets, marketId, outcomeId){
-  try { return markets[String(marketId)].outcomes[String(outcomeId)].players['0'].result; } catch(e){ return null; }
-}
 async function addPoints(env, poolId, user, delta){
   if (!delta) return;
   await env.DB.prepare(`UPDATE Memberships SET currentPoints = CAST(currentPoints AS REAL) + ? WHERE poolId=? AND user=?`)
@@ -34,20 +31,19 @@ export async function settleMatches(env){
         continue; // chưa hết 2 hiệp -> chờ tick sau (an toàn tới 4h)
       }
     }
-    const data = await apiGet(env, '/settlements?fixtureId=' + encodeURIComponent(mt.fixtureId));
-    if (!data || !data.markets) continue;
+    // score rỗng (>4h vẫn chưa có tỉ số) -> std/btts sẽ UNDECIDED; corner/card vẫn chấm từ SofaScore.
     const bets = (await readAll(env, 'Bets')).filter(b => b.poolId === mt.poolId && b.fixtureId === mt.fixtureId && !b.result && String(b.marketType).indexOf('c_') !== 0);
     let anyUndecided = false;
     let sofa, sofaTried = false;
     for (const b of bets) {
       let res;
       if (String(b.marketType) === 'btts') {
-        res = C.gradeBtts(b, mt.score);   // 2 đội ghi bàn: từ tỉ số (OddsPapi /settlements không chấm kèo này)
+        res = C.gradeBtts(b, mt.score);   // 2 đội ghi bàn: từ tỉ số
       } else if (C.EXTRA_KEYS.indexOf(String(b.marketType)) >= 0) {
         if (!sofaTried) { sofa = await sofaStats(env, mt.fixtureId); sofaTried = true; }
         res = C.gradeExtra(b, sofa, await C.midLine(env, Number(b.marketId)));
       } else {
-        res = lookupResult(data.markets, b.marketId, b.outcomeId);
+        res = C.gradeStd(b, mt.score, await C.midLine(env, Number(b.marketId)));  // 1x2/ou/ah: tự tính từ tỉ số (thay /settlements)
       }
       if (!res || res === 'UNDECIDED') { anyUndecided = true; continue; }
       const stake = Number(b.stake), odds = Number(b.lockedOdds); let payout = 0;

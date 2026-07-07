@@ -91,6 +91,53 @@ eq(C.gradeBtts({ marketId: 104, outcomeId: 105 }, '2-0'), 'WIN', 'Không: 2-0 ->
 eq(C.gradeBtts({ marketId: 104, outcomeId: 105 }, '3-2'), 'LOSE', 'Không: 3-2 cả hai ghi -> thua');
 eq(C.gradeBtts({ marketId: 104, outcomeId: 104 }, ''), 'UNDECIDED', 'chưa có tỉ số -> UNDECIDED');
 
+// gradeStd: chấm 1x2/ou/ah từ tỉ số (thay /settlements). score "a-b" (chủ-khách).
+// 1x2: oid 102=hòa, 103=khách, khác=chủ
+eq(C.gradeStd({ marketType:'1x2', outcomeId:101, marketId:101 }, '2-0'), 'WIN', '1x2 chủ thắng');
+eq(C.gradeStd({ marketType:'1x2', outcomeId:101, marketId:101 }, '0-2'), 'LOSE', '1x2 chủ thua');
+eq(C.gradeStd({ marketType:'1x2', outcomeId:102, marketId:101 }, '1-1'), 'WIN', '1x2 hòa thắng');
+eq(C.gradeStd({ marketType:'1x2', outcomeId:103, marketId:101 }, '0-2'), 'WIN', '1x2 khách thắng');
+eq(C.gradeStd({ marketType:'1x2', outcomeId:101, marketId:101 }, ''), 'UNDECIDED', '1x2 chưa có tỉ số');
+// ou: over.oid==marketId. vạch nửa -> WIN/LOSE; vạch nguyên -> có PUSH
+eq(C.gradeStd({ marketType:'ou', outcomeId:10, marketId:10 }, '2-1', 2.5), 'WIN', 'ou Tài 2.5: 3>2.5');
+eq(C.gradeStd({ marketType:'ou', outcomeId:11, marketId:10 }, '2-1', 2.5), 'LOSE', 'ou Xỉu 2.5: thua');
+eq(C.gradeStd({ marketType:'ou', outcomeId:10, marketId:10 }, '1-1', 2), 'PUSH', 'ou Tài 2.0: tổng 2 == vạch -> hòa vốn');
+eq(C.gradeStd({ marketType:'ou', outcomeId:10, marketId:10 }, '1-1', null), 'UNDECIDED', 'ou thiếu vạch (null)');
+eq(C.gradeStd({ marketType:'ou', outcomeId:10, marketId:10 }, '1-1', undefined), 'UNDECIDED', 'ou thiếu vạch (undefined — midLine trả undefined khi catalog thiếu)');
+eq(C.gradeStd({ marketType:'ah', outcomeId:20, marketId:20 }, '2-0', undefined), 'UNDECIDED', 'ah thiếu vạch (undefined)');
+// ah: home.oid==marketId. line = chấp ĐỘI CHỦ
+eq(C.gradeStd({ marketType:'ah', outcomeId:20, marketId:20 }, '2-0', -1), 'WIN', 'ah chủ -1: thắng 2 > 1');
+eq(C.gradeStd({ marketType:'ah', outcomeId:21, marketId:20 }, '2-0', -1), 'LOSE', 'ah khách +1: thua');
+eq(C.gradeStd({ marketType:'ah', outcomeId:20, marketId:20 }, '2-0', -2), 'PUSH', 'ah chủ -2 (vạch nguyên): thắng đúng 2 -> hòa vốn');
+eq(C.gradeStd({ marketType:'ah', outcomeId:20, marketId:20 }, '2-0', -1.5), 'WIN', 'ah chủ -1.5 (vạch nửa): thắng');
+// vạch tư 0.25/0.75 (hiện chưa dùng nhưng phải đúng) -> HALFWIN/HALFLOSS
+eq(C.gradeStd({ marketType:'ah', outcomeId:20, marketId:20 }, '1-1', 0.25), 'HALFWIN', 'ah chủ +0.25: hòa -> nửa thắng');
+eq(C.gradeStd({ marketType:'ah', outcomeId:20, marketId:20 }, '1-1', -0.25), 'HALFLOSS', 'ah chủ -0.25: hòa -> nửa thua');
+eq(C.gradeStd({ marketType:'ah', outcomeId:20, marketId:20 }, '1-2', -0.75), 'LOSE', 'ah chủ -0.75: thua 1 -> thua hẳn');
+eq(C.gradeStd({ marketType:'ah', outcomeId:20, marketId:20 }, '2-1', 0.75), 'WIN', 'ah chủ +0.75: thắng 1 -> thắng hẳn');
+eq(C.gradeStd({ marketType:'ah', outcomeId:21, marketId:20 }, '1-1', 0.25), 'HALFLOSS', 'ah khách (chấp -0.25): hòa -> nửa thua');
+// gradeAsian trực tiếp: các mốc biên
+eq(C.gradeAsian(0.25), 'HALFWIN', 'asian +0.25'); eq(C.gradeAsian(-0.25), 'HALFLOSS', 'asian -0.25');
+eq(C.gradeAsian(0), 'PUSH', 'asian 0'); eq(C.gradeAsian(0.5), 'WIN', 'asian +0.5'); eq(C.gradeAsian(-1), 'LOSE', 'asian -1');
+
+// AH 0.75 boundary — đặc biệt kiểm phía KHÁCH (đổi dấu: chủ +0.75 <-> khách -0.75)
+eq(C.gradeStd({ marketType:'ah', outcomeId:20, marketId:20 }, '2-1', -0.75), 'HALFWIN', 'ah chủ -0.75: thắng đúng 1 -> thắng nửa');
+eq(C.gradeStd({ marketType:'ah', outcomeId:20, marketId:20 }, '1-2', 0.75), 'HALFLOSS', 'ah chủ +0.75: thua đúng 1 -> thua nửa');
+eq(C.gradeStd({ marketType:'ah', outcomeId:21, marketId:20 }, '1-2', 0.75), 'HALFWIN', 'ah khách -0.75 (chủ +0.75): thắng đúng 1 -> thắng nửa');
+eq(C.gradeStd({ marketType:'ah', outcomeId:21, marketId:20 }, '2-1', -0.75), 'HALFLOSS', 'ah khách +0.75 (chủ -0.75): thua đúng 1 -> thua nửa');
+
+// OU vạch tư
+eq(C.gradeStd({ marketType:'ou', outcomeId:10, marketId:10 }, '1-1', 2.25), 'HALFLOSS', 'ou Tài 2.25: tổng 2 -> thua nửa');
+eq(C.gradeStd({ marketType:'ou', outcomeId:10, marketId:10 }, '2-1', 2.75), 'HALFWIN', 'ou Tài 2.75: tổng 3 -> thắng nửa');
+eq(C.gradeStd({ marketType:'ou', outcomeId:11, marketId:10 }, '1-1', 2.25), 'HALFWIN', 'ou Xỉu 2.25: tổng 2 -> thắng nửa');
+eq(C.gradeStd({ marketType:'ou', outcomeId:11, marketId:10 }, '2-1', 2.75), 'HALFLOSS', 'ou Xỉu 2.75: tổng 3 -> thua nửa');
+eq(C.gradeStd({ marketType:'ou', outcomeId:11, marketId:10 }, '1-1', 2), 'PUSH', 'ou Xỉu 2.0: tổng 2 == vạch -> hòa vốn');
+
+// score không hợp lệ -> UNDECIDED (regex loại trước khi Number)
+eq(C.gradeStd({ marketType:'1x2', outcomeId:101, marketId:101 }, 'abc'), 'UNDECIDED', 'score không hợp lệ');
+eq(C.gradeStd({ marketType:'1x2', outcomeId:101, marketId:101 }, '2'), 'UNDECIDED', 'score thiếu vế');
+eq(C.gradeStd({ marketType:'1x2', outcomeId:101, marketId:101 }, '2-a'), 'UNDECIDED', 'score vế sau không phải số');
+
 // sofaSum: fulltime góc = 1ST+2ND (KHÔNG gồm ET); thiếu period -> null
 const sj = { statistics: [
   { period: 'ALL', groups: [{ statisticsItems: [{ name: 'Corner kicks', home: '4', away: '2' }, { name: 'Yellow cards', home: '1', away: '1' }] }] },

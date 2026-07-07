@@ -3,19 +3,22 @@
 // so two concurrent bets can't overspend. Read-based checks (per-market max, cover-all) stay
 // best-effort — a lost race there only affects badge-arb, never the balance. // ponytail: balance is the invariant that must be atomic; the rest can be eventually-consistent.
 import { authUser, isAdmin, uuid } from './auth.js';
-import { readAll, findRow, findRows, appendRow, insertRow, deleteRow, cached, cacheBust } from './db.js';
+import { findRow, findRows, appendRow, deleteRow, cached, cacheBust } from './db.js';
 import * as C from './core.js';
 import { getLeaderboard, getHistory } from './social.js';
 
 export async function getPools(env, token){
   const user = await authUser(env, token);
   const pools = await findRows(env, 'Pools', 'status', 'open');
-  const mems = await readAll(env, 'Memberships');
+  const counts = {};
+  (await env.DB.prepare('SELECT poolId, COUNT(*) n FROM Memberships GROUP BY poolId').all()).results
+    .forEach(r => counts[r.poolId] = r.n);
+  const mine = {};
+  (await findRows(env, 'Memberships', 'user', user)).forEach(m => mine[m.poolId] = m);
   return pools.map(p => {
-    const m = mems.filter(x => x.poolId === p.poolId && x.user === user)[0];
-    const count = mems.filter(x => x.poolId === p.poolId).length;
+    const m = mine[p.poolId];
     return { poolId: p.poolId, name: p.name, joined: !!m,
-      currentPoints: m ? Number(m.currentPoints) : null, members: count, requirePassword: C.poolLocked(p) };
+      currentPoints: m ? Number(m.currentPoints) : null, members: counts[p.poolId] || 0, requirePassword: C.poolLocked(p) };
   });
 }
 
@@ -53,7 +56,13 @@ async function getMatches_(env, poolId, user){
   const bk = (poolRow && poolRow.bookmaker) ? poolRow.bookmaker : C.DEFAULT_BOOKMAKER;
   const enabled = C.poolExtra(poolRow || {});
   const oddsMap = {}, prevMap = {};
-  (await findRows(env, 'Odds', 'bookmaker', bk)).forEach(o => { oddsMap[o.fixtureId] = o.oddsJson; prevMap[o.fixtureId] = o.prevOddsJson; });
+  const fids = matches.map(mt => mt.fixtureId);   // ponytail: horizon is 48h so this IN-list stays tiny, well under D1's param cap
+  if (fids.length) {
+    const { results } = await env.DB.prepare(
+      `SELECT fixtureId,oddsJson,prevOddsJson FROM Odds WHERE bookmaker=? AND fixtureId IN (${fids.map(() => '?').join(',')})`
+    ).bind(bk, ...fids).all();
+    (results || []).forEach(o => { oddsMap[o.fixtureId] = o.oddsJson; prevMap[o.fixtureId] = o.prevOddsJson; });
+  }
   const myBets = (await findRows(env, 'Bets', 'poolId', poolId)).filter(b => b.user === user);
   const cmByFix = {};
   (await findRows(env, 'CustomMarkets', 'poolId', poolId)).forEach(c => {
@@ -99,7 +108,7 @@ export async function placeBet(env, token, poolId, fixtureId, marketType, outcom
   const mem = await C.findMembership(env, poolId, user);
   if (!mem) throw new Error('Bạn chưa join pool này');
   if (C.isBlocked(mem)) throw new Error('Bạn đã bị chặn khỏi sảnh này');
-  const mt = (await findRows(env, 'Matches', 'poolId', poolId)).filter(x => x.fixtureId === fixtureId)[0];
+  const mt = await env.DB.prepare('SELECT * FROM Matches WHERE poolId=? AND fixtureId=?').bind(poolId, String(fixtureId)).first();
   if (!mt) throw new Error('Không tìm thấy trận');
   if (new Date() >= new Date(mt.kickoff)) throw new Error('Trận đã đóng cược');
 
@@ -111,7 +120,7 @@ export async function placeBet(env, token, poolId, fixtureId, marketType, outcom
 
   let lockedOdds, marketId, nOutcomes;
   if (marketType.indexOf('c_') === 0) {
-    const cm = (await findRows(env, 'CustomMarkets', 'poolId', poolId)).filter(c => c.fixtureId === fixtureId && c.cid === marketType.slice(2))[0];
+    const cm = await env.DB.prepare('SELECT * FROM CustomMarkets WHERE poolId=? AND fixtureId=? AND cid=?').bind(poolId, String(fixtureId), marketType.slice(2)).first();
     if (!cm) throw new Error('Kèo không tồn tại');
     if (cm.result) throw new Error('Kèo đã chấm, không thể cược');
     const couts = JSON.parse(cm.outcomesJson || '[]');
@@ -121,7 +130,7 @@ export async function placeBet(env, token, poolId, fixtureId, marketType, outcom
   } else {
     if (C.TOGGLE_KEYS.indexOf(marketType) >= 0 && !C.poolExtra(poolRow || {})[marketType]) throw new Error('Kèo này chưa được bật cho sảnh');
     const bk = (poolRow && poolRow.bookmaker) ? poolRow.bookmaker : C.DEFAULT_BOOKMAKER;
-    const oddsRow = (await findRows(env, 'Odds', 'bookmaker', bk)).filter(o => o.fixtureId === fixtureId)[0];
+    const oddsRow = await env.DB.prepare('SELECT * FROM Odds WHERE bookmaker=? AND fixtureId=?').bind(bk, String(fixtureId)).first();
     if (!oddsRow) throw new Error('Chưa có odds cho trận này');
     const odds = JSON.parse(oddsRow.oddsJson);
     const okey = marketType === '1x2' ? 'm1x2' : marketType === 'ou' ? 'mou' : marketType === 'ah' ? 'mah' : marketType;
