@@ -82,6 +82,7 @@
       .iconbtn{ width:44px; height:44px; }
       .ocrow .oc-del{ height:44px; }
       .sq-btn{ min-height:44px; }
+      .cs-b{ width:44px; height:44px; }
     }
 
     /* ---------- cards ---------- */
@@ -186,7 +187,7 @@
     .cs-col{ flex:1; min-width:96px; }
     .cs-team{ font-size:11.5px; font-weight:700; color:var(--mut); text-align:center; margin-bottom:6px; white-space:nowrap; overflow:hidden; text-overflow:ellipsis; }
     .cs-stp{ display:flex; align-items:center; justify-content:center; gap:8px; }
-    .cs-b{ width:40px; height:40px; border-radius:12px; background:var(--card2); color:var(--txt); border:1px solid var(--line2); font-size:20px; font-weight:900; cursor:pointer; transition:.14s; }
+    .cs-b{ width:40px; height:40px; border-radius:var(--r-input); background:var(--card2); color:var(--txt); border:1px solid var(--line2); font-size:20px; font-weight:900; cursor:pointer; transition:.14s; }
     .cs-b:hover:not(:disabled){ border-color:var(--cyan); }
     .cs-b:disabled{ opacity:.35; cursor:default; }
     .cs-n{ font-size:24px; font-weight:900; min-width:22px; text-align:center; }
@@ -1106,20 +1107,21 @@ function csMap(eo){ var mp={}; (eo.scores||[]).forEach(function(s){ mp[s.h+'-'+s
 function csBounds(eo){ var mh=0,ma=0; (eo.scores||[]).forEach(function(s){ if(s.h>mh)mh=s.h; if(s.a>ma)ma=s.a; }); return {mh:mh,ma:ma}; }
 function csBlock(m,eo){
   if(!CS_SEL[m.fixtureId]){ var f=(eo.scores||[])[0]||{h:0,a:0}; CS_SEL[m.fixtureId]={h:f.h,a:f.a}; }
-  return '<div class="cs-wrap" id="cs_'+m.fixtureId+'">'+csInner(m,eo)+'</div>';
+  return '<div class="cs-wrap" id="cs_'+m.fixtureId+'" role="group" aria-label="Chọn tỉ số chính xác" aria-live="polite">'+csInner(m,eo)+'</div>';
 }
 function csInner(m,eo){
   var sel=CS_SEL[m.fixtureId], b=csBounds(eo), sc=csMap(eo)[sel.h+'-'+sel.a];
   function stepper(team,which,val,max){
     var dis=m.open?'':'disabled';
-    return '<div class="cs-col"><div class="cs-team">'+esc(short(team))+'</div><div class="cs-stp">'+
-      '<button class="cs-b" '+dis+(val<=0?' disabled':'')+' onclick="csStep(\''+m.fixtureId+'\',\''+which+'\',-1)">−</button>'+
-      '<span class="cs-n">'+val+'</span>'+
-      '<button class="cs-b" '+dis+(val>=max?' disabled':'')+' onclick="csStep(\''+m.fixtureId+'\',\''+which+'\',1)">+</button></div></div>';
+    var tn=esc(short(team));
+    return '<div class="cs-col"><div class="cs-team">'+tn+'</div><div class="cs-stp">'+
+      '<button class="cs-b" aria-label="Bớt bàn '+tn+'" '+dis+(val<=0?' disabled':'')+' onclick="csStep(\''+m.fixtureId+'\',\''+which+'\',-1)">−</button>'+
+      '<span class="cs-n" aria-label="'+tn+' '+val+' bàn">'+val+'</span>'+
+      '<button class="cs-b" aria-label="Thêm bàn '+tn+'" '+dis+(val>=max?' disabled':'')+' onclick="csStep(\''+m.fixtureId+'\',\''+which+'\',1)">+</button></div></div>';
   }
   var priced=sc&&m.open;
   var odd=sc
-    ? '<button class="odd cs-odd" '+(m.open?'':'disabled')+' onclick="pick(\''+m.fixtureId+'\',\'cs\',\''+sc.oid+'\','+sc.price+')"><span class="lbl">'+sel.h+':'+sel.a+'</span><span class="val">'+sc.price+'</span></button>'
+    ? '<button class="odd cs-odd" id="o_'+m.fixtureId+'_cs_'+sc.oid+'" '+(m.open?'':'disabled')+' onclick="pick(\''+m.fixtureId+'\',\'cs\',\''+sc.oid+'\','+sc.price+')"><span class="lbl">'+sel.h+':'+sel.a+'</span><span class="val">'+sc.price+'</span></button>'
     : '<button class="odd cs-odd" disabled><span class="lbl">'+sel.h+':'+sel.a+'</span><span class="val">—</span></button>';
   return stepper(m.team1,'h',sel.h,b.mh)+stepper(m.team2,'a',sel.a,b.ma)+'<div class="cs-pick">'+odd+(sc?'':'<span class="cs-na">Kèo quỷ không có</span>')+'</div>';
 }
@@ -1128,6 +1130,15 @@ function csStep(fid,which,delta){
   var b=csBounds(m.odds.cs), s=CS_SEL[fid];
   s[which]=Math.max(0,Math.min(which==='h'?b.mh:b.ma,(s[which]||0)+delta));
   var box=el('cs_'+fid); if(box) box.innerHTML=csInner(m,m.odds.cs);
+  // Đang mở cửa sổ đặt cược cho kèo tỉ số này mà đổi tỉ số -> chọn lại theo tỉ số mới, giữ nguyên điểm đã nhập.
+  if(SEL && SEL.fixtureId===fid && SEL.mtype==='cs' && el('stakebox')){
+    var ns=m.open ? csMap(m.odds.cs)[s.h+'-'+s.a] : null;
+    if(!ns){ cancelBet(); return; }   // tỉ số mới không có kèo -> đóng slip, buộc chọn lại
+    SEL.oid=ns.oid; SEL.price=ns.price;
+    var nb=el('o_'+fid+'_cs_'+ns.oid); if(nb) nb.classList.add('sel');
+    var slip=document.querySelector('#stakebox .slip-sel'); if(slip) slip.innerHTML=s.h+':'+s.a+' <span style="color:var(--lime)">@ '+ns.price+'</span>';
+    updateWin();
+  }
 }
 // Kèo tự ra ở tab Trận đấu: hiển thị GIỐNG kèo thường (tên kèo + ô cửa cược). Admin có nút sửa/xoá nhỏ.
 // Trận đã bắt đầu -> rời tab này sang tab Kết quả; việc chấm kết quả nằm ở đó.
