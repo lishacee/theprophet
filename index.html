@@ -956,6 +956,7 @@ function doChangePwd(){
 // ---- Tabs ----
 function show(v){
   if(POLL){ clearInterval(POLL); POLL=null; }
+  window.scrollTo(0,0); // mỗi tab mở từ đầu (vd Kết quả: trận mới nhất ở trên cùng), không giữ scroll của tab trước
   ['pools','bet','hist','lb','admin'].forEach(function(x){
     var view=el('view-'+x); if(view) view.classList.toggle('hidden', x!==v);
     var tab=el('t-'+x); if(tab) tab.classList.toggle('active', x===v);
