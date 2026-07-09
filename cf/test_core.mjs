@@ -60,6 +60,14 @@ assert.ok(be.f.includes('coldstreak'), 'f coldstreak (streakL 4)');
 assert.ok(be.f.includes('bot'), 'f bot (bottom + far below avg)');
 assert.strictEqual(be.f[0], 'bot', 'bad badges first, in BADGE_BAD order (bot before coldstreak)');
 
+// demonking (odds ≥7) suppresses underdog (odds ≥5) — overlap: they must not both fire
+const dk = C.badgeEval([
+  { user:'x', points:1000, start:1000, nSettled:1, nWin:1, ouWin:0, ahWin:0, maxWonOdds:8, contrarian:0, streakW:0, streakL:0, bigOddWin:1 },
+  { user:'y', points:1000, start:1000, nSettled:1, nWin:1, ouWin:0, ahWin:0, maxWonOdds:6, contrarian:0, streakW:0, streakL:0, bigOddWin:0 },
+], 1000);
+assert.ok(dk.x.includes('demonking') && !dk.x.includes('underdog'), 'odds ≥7 -> demonking only, not underdog');
+assert.ok(dk.y.includes('underdog') && !dk.y.includes('demonking'), 'odds 5–7 -> underdog only');
+
 // parseApiTime: epoch s == ms, ISO, empty
 eq(C.parseApiTime(1782000000).getTime(), C.parseApiTime(1782000000000).getTime(), 'epoch s==ms');
 eq(C.parseApiTime('2026-06-26T12:00:00Z').getTime(), Date.parse('2026-06-26T12:00:00Z'), 'iso parse');

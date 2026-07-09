@@ -78,8 +78,8 @@ export function badgeEval(rows, baseStart){
     if (n >= 4 && topUsers[r.user]) { if (r.points - avgOthers(sorted, r.user) > base) good.push('ximup'); }
     if (ahMax >= 3 && r.ahWin === ahMax) good.push('ahdog');
     if (ouMax >= 3 && r.ouWin === ouMax) good.push('oudog');
-    if (r.maxWonOdds >= 5) good.push('underdog');
-    if (r.bigOddWin >= 1) good.push('demonking');
+    if (r.bigOddWin >= 1) good.push('demonking');       // thắng odds ≥7
+    else if (r.maxWonOdds >= 5) good.push('underdog');   // odds 5–7 (demonking đã bao odds ≥7, tránh nổ cả 2)
     if (r.contrarian >= 1) good.push('contrarian');
     if (r.streakW >= 3) good.push('onfire');
     if (r.streakL >= 3) bad.push('coldstreak');

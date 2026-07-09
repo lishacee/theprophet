@@ -10,6 +10,7 @@ import * as pools from './src/pools.js';
 import * as social from './src/social.js';
 import * as admin from './src/admin.js';
 import { apiGet } from './src/api.js';
+import { settleMatches } from './src/settle.js';
 
 // D1 shim: prepare().bind().first()/.all()/.run() + batch() over node:sqlite.
 function d1(db){
@@ -238,6 +239,41 @@ await assert.rejects(admin.adminEndSeason(env, boss.token, poolId, ''), /Cần t
   assert.ok(proxied.length >= 2, 'proxy: routed both keys through the proxy');
 
   globalThis.fetch = realFetch;
+}
+
+// ---- Cron settleMatches: same fixture in 2 pools settles from ONE shared score fetch (no divergence) ----
+{
+  const realFetch = globalThis.fetch;
+  const raw2 = new DatabaseSync(':memory:');
+  raw2.exec(readFileSync(new URL('./schema.sql', import.meta.url), 'utf8'));
+  const env2 = { DB: d1(raw2), ODDSPAPI_KEYS: 'GOODKEY' };
+
+  const past = new Date(Date.now() - 3 * 3600000).toISOString(); // 3h ago -> past the 100-min settle gate
+  for (const pid of ['pA', 'pB']) {
+    raw2.prepare(`INSERT INTO Matches(poolId,fixtureId,tournamentId,team1,team2,kickoff,included,settled) VALUES(?,?,?,?,?,?,?,?)`)
+       .run(pid, 'fx', '16', 'France', 'Morocco', past, 'Y', '');
+    raw2.prepare(`INSERT INTO Memberships(poolId,user,joinAt,startingPoints,currentPoints) VALUES(?,?,?,?,?)`)
+       .run(pid, 'alice', past, '1000', '900'); // 100 already staked below
+    raw2.prepare(`INSERT INTO Bets(betId,poolId,user,fixtureId,marketType,marketId,outcomeId,stake,lockedOdds) VALUES(?,?,?,?,?,?,?,?,?)`)
+       .run(pid + '_b', pid, 'alice', 'fx', '1x2', '101', '101', '100', '2.0'); // home win @2.0
+  }
+
+  let scoreFetches = 0;
+  globalThis.fetch = async (url) => {
+    if (!String(url).includes('/scores')) throw new Error('unexpected fetch: ' + url);
+    scoreFetches++;
+    return { status: 200, headers: { get: () => null },
+      text: async () => JSON.stringify({ scores: { periods: { fulltime: { participant1Score: 2, participant2Score: 0 } } } }) };
+  };
+  await settleMatches(env2);
+  globalThis.fetch = realFetch;
+
+  assert.strictEqual(scoreFetches, 1, 'score fetched ONCE for the fixture despite 2 pools (no duplicate /scores)');
+  for (const pid of ['pA', 'pB']) {
+    assert.strictEqual(raw2.prepare(`SELECT settled s FROM Matches WHERE poolId=?`).get(pid).s, 'Y', pid + ' settled');
+    assert.strictEqual(raw2.prepare(`SELECT result r FROM Bets WHERE poolId=?`).get(pid).r, 'WIN', pid + ' bet WIN (2-0 home)');
+    assert.strictEqual(Number(raw2.prepare(`SELECT currentPoints c FROM Memberships WHERE poolId=?`).get(pid).c), 1100, pid + ' credited 200 payout -> 1100');
+  }
 }
 
 console.log('OK — Worker DB flows: auth, admin gate, join, bet, overspend rollback, leaderboard, delta re-settle, multi-winner custom settle, oddspapi key rotation.');
