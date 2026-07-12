@@ -4,6 +4,7 @@
 import { requireAdmin, uuid } from './auth.js';
 import { readAll, findRow, findRows, appendRow, updateRow, deleteRow, cacheBust, setProp, cacheGet } from './db.js';
 import { refreshOdds, importPoolFixtures } from './odds.js';
+import { settleMatches } from './settle.js';
 import { apiGet } from './api.js';
 import * as C from './core.js';
 
@@ -143,6 +144,24 @@ export async function adminFinalizeMarket(env, token, poolId, fixtureId, cid){
   await updateRow(env, 'CustomMarkets', { poolId, fixtureId, cid }, { locked: 'Y' });
   await cacheBust(env, (await C.mtKeys(env, poolId, u)).concat(['lb_' + poolId]));
   return { ok: true };
+}
+
+// Fetch & chấm lại 1 trận bị kẹt qua API (thay vì chấm tay): mở lại trận rồi cho settle chạy lại
+// (fetch tỉ số + SofaScore mới nhất). Fixture-level -> mở mọi sảnh của trận, chấm 1 lượt/1 lần fetch.
+// Nếu dữ liệu vẫn thiếu, settle tự đóng lại (>3h) và admin vẫn chấm tay được. Trả số cửa còn kẹt.
+export async function adminRefetchMatch(env, token, poolId, fixtureId){
+  const u = await requireAdmin(env, token);
+  const rows = await findRows(env, 'Matches', 'fixtureId', fixtureId);
+  if (!rows.length) throw new Error('Trận không tồn tại');
+  await env.DB.prepare(`UPDATE Matches SET settled='N' WHERE fixtureId=?`).bind(fixtureId).run();
+  await settleMatches(env, fixtureId);
+  const stuck = await env.DB.prepare(
+    `SELECT COUNT(*) AS n FROM Bets WHERE fixtureId=? AND (result IS NULL OR result='') AND marketType NOT LIKE 'c\\_%' ESCAPE '\\'`
+  ).bind(fixtureId).first();
+  const keys = ['lb_' + poolId];
+  for (const p of [...new Set(rows.map(r => r.poolId))]) keys.push(...await C.mtKeys(env, p, u));
+  await cacheBust(env, keys);
+  return { remaining: stuck ? Number(stuck.n) : 0 };
 }
 
 // Chấm tay kèo CHUẨN bị kẹt (auto-settle bó tay).

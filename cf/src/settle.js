@@ -11,10 +11,12 @@ async function addPoints(env, poolId, user, delta){
     .bind(delta, poolId, user).run();
 }
 
-export async function settleMatches(env){
+// onlyFixtureId: chỉ chấm 1 trận (nút "fetch chấm lại" của admin) — bỏ qua phần còn lại.
+export async function settleMatches(env, onlyFixtureId){
   const now = new Date();
   const matches = (await readAll(env, 'Matches')).filter(mt =>
-    String(mt.settled).toUpperCase() !== 'Y' && new Date(mt.kickoff) < new Date(now - 100 * 60000));
+    String(mt.settled).toUpperCase() !== 'Y' && new Date(mt.kickoff) < new Date(now - 100 * 60000)
+    && (!onlyFixtureId || String(mt.fixtureId) === String(onlyFixtureId)));
   if (!matches.length) return;
 
   // Prefetch một lần: bets group theo pool|fixture (xài index thay full-scan/match), + catalog cho midLine/csLabel.

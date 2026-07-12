@@ -43,6 +43,11 @@ eq('1x2_2' in mv, false, 'unchanged absent');
 const ou = C.stdOutcomes(JSON.stringify({ mou:{ line:2.5, over:{oid:10,price:1.9}, under:{oid:11,price:1.9} } }), 'ou', 'A', 'B');
 eq(ou.length, 2, 'ou 2 outcomes'); eq(ou[0].label, 'Tài bàn 2.5', 'ou over label'); eq(ou[1].label, 'Xỉu bàn 2.5', 'ou under label');
 
+// stdOutcomes: cs node ({scores:[...]}, no over/under) must NOT throw 'oid' — regression for force-closed correct-score bets
+const cs = C.stdOutcomes(JSON.stringify({ cs:{ marketId:10336, scores:[{oid:1,h:1,a:0,price:8},{oid:2,h:2,a:1,price:12}] } }), 'cs', 'A', 'B');
+eq(cs.length, 2, 'cs 2 outcomes'); eq(cs[0].label, 'Tỉ số 1:0', 'cs label'); eq(cs[0].oid, 1, 'cs oid');
+eq(C.stdOutcomes(JSON.stringify({ ou:{ marketId:1 } }), 'ou', 'A', 'B').length, 0, 'ou node w/o over/under -> [] not throw');
+
 // badgeEval: 6 players, top winner with big lead + high win-rate -> prophet + lonewolf; worst -> bot/coldstreak
 const rows = [
   { user:'a', points:2000, start:1000, nSettled:10, nWin:9, ouWin:0, ahWin:0, maxWonOdds:3, contrarian:0, streakW:4, streakL:0, bigOddWin:0 },

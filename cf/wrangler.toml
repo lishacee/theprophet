@@ -18,7 +18,7 @@ crons = ["*/5 * * * *", "*/15 * * * *", "0 */6 * * *"]
 #   SOFASCORE_PROXY (your existing CF Worker proxy), SCRAPERAPI_KEY
 # Non-secret var:
 [vars]
-ALLOW_ORIGIN = "*"
+ALLOW_ORIGIN = "https://lishacee.github.io"
 ADMINS = "thang"
 
 [observability]

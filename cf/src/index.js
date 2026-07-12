@@ -36,6 +36,7 @@ const REGISTRY = {
   adminSettleMarket:   (env, t, id, fx, c, w)   => admin.adminSettleMarket(env, t, id, fx, c, w),
   adminFinalizeMarket: (env, t, id, fx, c)      => admin.adminFinalizeMarket(env, t, id, fx, c),
   adminSettleStdMarket:(env, t, id, fx, mt, w)  => admin.adminSettleStdMarket(env, t, id, fx, mt, w),
+  adminRefetchMatch:   (env, t, id, fx)         => admin.adminRefetchMatch(env, t, id, fx),
   adminListPools:      (env, t)                 => admin.adminListPools(env, t),
   adminTournaments:    (env, t, f)              => admin.adminTournaments(env, t, f),
   adminCreatePool:     (env, t, o)              => admin.adminCreatePool(env, t, o),

@@ -114,6 +114,8 @@ export function stdOutcomes(oddsJson, marketType, t1, t2){
   if (marketType === 'btts') return [
     { oid: n.yes.oid, label: '2 đội ghi bàn: Có', price: n.yes.price },
     { oid: n.no.oid, label: '2 đội ghi bàn: Không', price: n.no.price }];
+  if (marketType === 'cs') return (n.scores || []).map(s => ({ oid: s.oid, label: 'Tỉ số ' + s.h + ':' + s.a, price: s.price }));
+  if (!n.over || !n.under) return [];   // node không phải họ tài/xỉu -> tránh crash cả pool view
   const kind = marketType === 'ou' ? 'bàn' : OU_KIND_LABEL[marketType];
   return [{ oid: n.over.oid, label: 'Tài ' + kind + ' ' + n.line, price: n.over.price },
           { oid: n.under.oid, label: 'Xỉu ' + kind + ' ' + n.line, price: n.under.price }];

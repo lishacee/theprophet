@@ -27,6 +27,8 @@
       --topbar-txt:#eafdf2; --topbar-mut:#9fc2b0; --topbar-accent:#9fe85f;
       --topbar-line:rgba(255,255,255,.14); --topbar-btn:rgba(255,255,255,.07); --topbar-chip:rgba(255,255,255,.08);
       --shadow:0 10px 26px rgba(0,0,0,.32);
+      --toast-err-bg:#2a1115; --toast-err-fg:#ffc2c8; --toast-err-bd:#5c2b32;
+      --toast-ok-bg:#10301f; --toast-ok-fg:#cdffd9; --toast-ok-bd:rgba(159,232,95,.35);
       /* radius scale (DESIGN.md) + semantic z-index scale — theme-independent, defined once */
       --r-sm:10px; --r-input:12px; --r-md:13px; --r-card:20px; --r-pill:999px;
       --z-savebar:20; --z-sticky:50; --z-nav:60; --z-modal:250; --z-toast:260; --z-fx:300; --z-netbar:400; --z-devpanel:500;
@@ -49,6 +51,8 @@
       --topbar-txt:#ffffff; --topbar-mut:rgba(255,255,255,.82); --topbar-accent:#ffffff;
       --topbar-line:rgba(255,255,255,.32); --topbar-btn:rgba(255,255,255,.18); --topbar-chip:rgba(255,255,255,.16);
       --shadow:0 10px 26px rgba(110,70,170,.14);
+      --toast-err-bg:#fde8ea; --toast-err-fg:#8f1d2e; --toast-err-bd:rgba(209,51,80,.35);
+      --toast-ok-bg:#e6f7ec; --toast-ok-fg:#10632f; --toast-ok-bd:rgba(21,128,61,.35);
     }
     *{ box-sizing:border-box; -webkit-tap-highlight-color:transparent; }
     html{ margin:0; background:var(--page-bg); }
@@ -64,8 +68,8 @@
       max-width:480px; width:calc(100% - 28px); padding:12px 16px; border-radius:14px; font-size:13.5px; font-weight:600;
       transition:transform .35s cubic-bezier(.22,1,.36,1); box-shadow:0 14px 40px rgba(0,0,0,.3); }
     #msg.show{ transform:translate(-50%,0); }
-    #msg.err{ background:#2a1115; color:#ffc2c8; border:1px solid #5c2b32; }
-    #msg.ok{ background:#10301f; color:#cdffd9; border:1px solid rgba(159,232,95,.35); }
+    #msg.err{ background:var(--toast-err-bg); color:var(--toast-err-fg); border:1px solid var(--toast-err-bd); }
+    #msg.ok{ background:var(--toast-ok-bg); color:var(--toast-ok-fg); border:1px solid var(--toast-ok-bd); }
 
     /* ---------- buttons ---------- */
     button{ font-family:inherit; cursor:pointer; border:0; }
@@ -136,7 +140,7 @@
       background:var(--topbar-chip); border:1px solid var(--topbar-line); color:var(--topbar-txt); cursor:pointer;
       max-width:60vw; font-size:12.5px; transition:transform .12s, background-color .15s; }
     .poolsel:active{ transform:scale(.97); }
-    .poolsel .ps-k{ font-size:9px; font-weight:800; letter-spacing:.9px; text-transform:uppercase; color:var(--topbar-mut); flex:none; }
+    .poolsel .ps-k{ font-size:10px; font-weight:800; letter-spacing:.9px; text-transform:uppercase; color:var(--topbar-mut); flex:none; }
     .poolsel .ps-n{ font-weight:800; white-space:nowrap; overflow:hidden; text-overflow:ellipsis; }
     .poolsel .ps-x{ width:19px; height:19px; border-radius:50%; background:var(--topbar-btn); border:1px solid var(--topbar-line);
       display:flex; align-items:center; justify-content:center; font-size:9px; flex:none; }
@@ -294,7 +298,7 @@
     .sq-row.done .sq-name{ font-weight:700; }
     .sq-btn{ flex:none; background:var(--gold); color:#241a00; border:0; border-radius:11px; padding:9px 16px; font-weight:800; font-size:13.5px; cursor:pointer; }
     .sq-btn.ghost{ background:transparent; color:var(--mut); border:1px solid var(--line2); font-weight:700; }
-    .sq-actions{ display:flex; gap:6px; flex:none; }
+    .sq-actions{ display:flex; gap:6px; flex:none; flex-wrap:wrap; justify-content:flex-end; }
     .sq-btn.lock{ background:var(--win); color:#06210f; }
     .sq-item{ border-top:1px solid var(--line); }
     .sq-item .sq-row{ border-top:0; }
@@ -441,9 +445,9 @@
     .bchip{ position:relative; overflow:hidden; display:inline-flex; align-items:center; gap:3px; font-size:10.5px; font-weight:800; color:var(--lime);
       background:var(--accent-soft); border:1px solid var(--accent-bd); border-radius:var(--r-pill); padding:2px 8px; white-space:nowrap; }
     .bchip::after{ content:""; position:absolute; top:0; left:-70%; width:45%; height:100%; transform:skewX(-20deg);
-      background:linear-gradient(100deg, transparent, rgba(255,255,255,.4), transparent); animation:sheen 4.5s ease-in-out infinite; }
+      background:linear-gradient(100deg, transparent, rgba(255,255,255,.4), transparent); animation:sheen 4.5s ease-in-out infinite; will-change:transform; }
     .bchip.bad::after, .bchip.more::after{ display:none; }
-    @keyframes sheen{ 0%,72%{ left:-70%;} 88%,100%{ left:130%;} }
+    @keyframes sheen{ 0%,72%{ transform:skewX(-20deg) translateX(0);} 88%,100%{ transform:skewX(-20deg) translateX(444%);} }
     .bchip.bad{ color:var(--lose); background:rgba(255,93,108,.12); border-color:rgba(255,93,108,.4); }
     .bchip.more{ color:var(--mut); background:transparent; border:1px solid var(--line2); }
     .modal-ov{ position:fixed; inset:0; z-index:var(--z-modal); background:rgba(0,0,0,.55); backdrop-filter:blur(3px);
@@ -532,9 +536,9 @@
     /* thanh loading toàn cục khi có request server đang bay */
     #netbar{ position:fixed; top:0; left:0; right:0; height:3px; z-index:var(--z-netbar); opacity:0; transition:opacity .15s; pointer-events:none; }
     #netbar.on{ opacity:1; }
-    #netbar::before{ content:''; position:absolute; top:0; height:100%; width:40%; border-radius:3px;
-      background:linear-gradient(90deg,transparent,var(--lime),transparent); animation:netslide 1s linear infinite; }
-    @keyframes netslide{ 0%{ left:-40%; } 100%{ left:100%; } }
+    #netbar::before{ content:''; position:absolute; top:0; left:0; height:100%; width:40%; border-radius:3px;
+      background:linear-gradient(90deg,transparent,var(--lime),transparent); animation:netslide 1s linear infinite; will-change:transform; }
+    @keyframes netslide{ 0%{ transform:translateX(-100%); } 100%{ transform:translateX(250%); } }
     a.link{ color:var(--lime); cursor:pointer; font-weight:700; }
 
     /* keyboard focus: visible ring on every interactive element (buttons, inputs, role=button toggles) */
@@ -1455,10 +1459,20 @@ function stuckItem(it){
     '<button class="sq-refund" onclick="doSettleStd(\''+fid+'\',\''+mt+'\',\'VOID\')">↩︎ Hoàn cả kèo — trả điểm mọi người</button>'+
     '</div>';
   return '<div class="sq-item"><div class="sq-row"><div class="sq-info"><div class="sq-name">🎯 '+esc(mktDisplayName(mt))+'</div><div class="sq-match">'+mn+sc+'</div></div>'+
-    '<button class="sq-btn" onclick="toggleSettlePanel(\''+key+'\')">Chấm ▾</button></div>'+panel+'</div>';
+    '<div class="sq-actions"><button class="sq-btn ghost" onclick="doRefetch(\''+fid+'\')">🔄 Fetch chấm lại</button>'+
+    '<button class="sq-btn" onclick="toggleSettlePanel(\''+key+'\')">Chấm tay ▾</button></div></div>'+panel+'</div>';
 }
 function doSettleStd(fid,mt,win){
   srun('adminSettleStdMarket', TOKEN, CURPOOL, fid, mt, win).then(function(){ msg(win==='VOID'?'Đã hoàn kèo — trả điểm mọi người ✓':'Đã chấm kèo ✓', true); loadMatches(true); try{ loadHist(true); }catch(e){} }).catch(function(e){ msg(e.message||e); });
+}
+// Fetch lại tỉ số + SofaScore qua API rồi chấm lại cả trận (mọi cửa kẹt). Dữ liệu còn thiếu -> báo số cửa còn kẹt để chấm tay.
+function doRefetch(fid){
+  msg('Đang fetch & chấm lại…');
+  srun('adminRefetchMatch', TOKEN, CURPOOL, fid).then(function(r){
+    var rem=(r&&r.remaining)||0;
+    msg(rem?('Đã fetch — còn '+rem+' cửa chưa có dữ liệu, chấm tay nếu cần'):'Đã fetch & chấm xong ✓', !rem);
+    loadMatches(true); try{ loadHist(true); }catch(e){}
+  }).catch(function(e){ msg(e.message||e); });
 }
 // Một dòng trong hàng đợi: header + panel chọn cửa thắng (ẩn, bấm "Chấm/Sửa" mới mở).
 // Danh sách oid các cửa thắng từ cm.result ("0,2" -> ['0','2']). VOID/NONE/rỗng -> [].
@@ -1725,9 +1739,9 @@ function badgeLine(r,idx){
   return '<div class="bline" role="button" tabindex="0" aria-label="Xem badge" onclick="event.stopPropagation();openBadges('+idx+')">'+chips+'</div>';
 }
 function avColor(name){ name=String(name); var h=0; for(var i=0;i<name.length;i++){ h=(h*31+name.charCodeAt(i))%360; } return 'hsl('+h+',52%,52%)'; }
-function loadLb(){
+function loadLb(force){
   if(!CURPOOL){ el('view-lb').innerHTML='<div class="card center muted" style="padding:26px">Chọn một sảnh trước nhé.</div>'; return; }
-  swr('lb', function(){ return srun('getLeaderboard', TOKEN, CURPOOL); }, applyLb, function(){ skelCards('lb',5); });
+  swr('lb', function(){ return srun('getLeaderboard', TOKEN, CURPOOL); }, applyLb, function(){ skelCards('lb',5); }, force);
 }
 function applyLb(rows){
     LBROWS=rows;
@@ -1864,7 +1878,7 @@ function limitPicks(box){
 }
 function savePins(idx){
   var ids=[].slice.call(document.querySelectorAll('.bpick:not(:disabled)')).filter(function(c){return c.checked;}).map(function(c){return c.value;});
-  srun('setPinnedBadges', TOKEN, CURPOOL, ids.join(',')).then(function(){ closeModal(); msg('Đã lưu badge hiển thị ✨',true); loadLb(); }).catch(function(e){ msg(e.message||e); });
+  srun('setPinnedBadges', TOKEN, CURPOOL, ids.join(',')).then(function(){ closeModal(); msg('Đã lưu badge hiển thị ✨',true); loadLb(true); }).catch(function(e){ msg(e.message||e); });
 }
 
 // ---- Admin ----
@@ -2202,6 +2216,8 @@ authTab('login');
     var won=bet&&wins.indexOf(String(bet.outcomeId))>=0; if(bet) pay(bet, won?Math.round(bet.stake*bet.lockedOdds):0, won?'Thắng':'Thua');
     return {}; }
   function hFinalize(fid,cid){ var f=findCM(fid,cid); if(f) f.cm.locked=true; return {}; }   // lock -> leaves the chấm queue
+  function hRefetch(fid){ var d=DB(), m=(d.hist||[]).filter(function(x){ return x.fixtureId===fid; })[0];   // fetch OK -> chấm hết, hết kẹt
+    if(m){ (m.stuckMarkets||[]).forEach(function(s){ var bet=betOf(m,s.marketType); if(bet&&!bet.result) pay(bet, Math.round(bet.stake*bet.lockedOdds), 'Thắng'); }); m.stuckMarkets=[]; } return {remaining:0}; }
   function hSettleStd(fid,mt,win){ var d=DB(), m=(d.hist||[]).filter(function(x){ return x.fixtureId===fid; })[0]; if(!m) return {};
     var bet=betOf(m,mt);
     if(win==='VOID') pay(bet, bet?bet.stake:0, 'Hoàn');
@@ -2246,6 +2262,7 @@ authTab('login');
     // case 2: settlement mutations always resolve so the full chấm -> hoàn -> chốt lifecycle is testable
     if(fn==='adminSettleMarket')    return Promise.resolve(hSettle(a[2], a[3], a[4]));   // (token,pool,fid,cid,win)
     if(fn==='adminSettleStdMarket') return Promise.resolve(hSettleStd(a[2], a[3], a[4])); // (token,pool,fid,mtype,win)
+    if(fn==='adminRefetchMatch')    return Promise.resolve(hRefetch(a[2]));               // (token,pool,fid)
     if(fn==='adminFinalizeMarket')  return Promise.resolve(hFinalize(a[2], a[3]));        // (token,pool,fid,cid)
     if(fn==='adminListClonableMarkets') return Promise.resolve([
       {srcPool:'p2', srcPoolName:'Bạn bè thân', srcCid:'aa11', name:'Ai ghi bàn đầu tiên?', outcomes:[{oid:0,label:'Bồ Đào Nha',price:1.9},{oid:1,label:'Tây Ban Nha',price:2.0}], result:'', already:false},

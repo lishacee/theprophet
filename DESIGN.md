@@ -19,6 +19,10 @@ colors:
   candy-bg: "#ddd0ec"
   candy-surface: "#ffffff"
   candy-ink: "#281d3d"
+  toast-err-bg: "#2a1115"
+  toast-err-fg: "#ffc2c8"
+  toast-ok-bg: "#10301f"
+  toast-ok-fg: "#cdffd9"
 typography:
   display:
     fontFamily: "Outfit, system-ui, -apple-system, Segoe UI, Roboto, sans-serif"
@@ -119,9 +123,9 @@ A dark pitch-green field lit by one electric accent, with a strict semantic set 
 - **Signal Cyan** (`#52c7e6` dark / `#0e95b0` light): a secondary line/marker color for odds movement and subtle emphasis. Used sparingly, never competing with the lime for "action".
 
 ### Tertiary (semantic outcomes — fixed, never repurposed)
-- **Win Green** (`#84e07a` dark / `#16a34a` light): winning bets, positive net, up-ticks.
-- **Loss Coral** (`#ff6b78` dark / `#e23b5a` light): losing bets, negative net, destructive actions.
-- **Streak Gold** (`#f2c43d` dark / `#e8920c` light): badges, streaks, rewards.
+- **Win Green** (`#84e07a` dark / `#15803d` light): winning bets, positive net, up-ticks.
+- **Loss Coral** (`#ff6b78` dark / `#d13350` light): losing bets, negative net, destructive actions.
+- **Streak Gold** (`#f2c43d` dark / `#b0600a` light): badges, streaks, rewards. Candy Pop darkens gold heavily for 4.5:1 on white.
 
 ### Neutral
 - **Pitch Black-Green** (`#0c1611`): the page field (dark theme), carried by a faint radial lime glow at the top. Candy Pop field is **Lavender** (`#ddd0ec`).
@@ -135,7 +139,7 @@ A dark pitch-green field lit by one electric accent, with a strict semantic set 
 
 **The Semantic Lock.** Green/coral/gold mean win/loss/reward *only*. Never use win-green as a decorative accent or loss-coral for anything but a real loss or a destructive control.
 
-**The Contrast Floor Rule.** Muted text must clear 4.5:1 on its own surface. `muted-quiet` (`#5f7669`) and Candy Pop's muted (`#7d7596`) are borderline on their fields — use them only for large or non-essential text, and bump toward ink when in doubt.
+**The Contrast Floor Rule.** Muted text must clear 4.5:1 on its own surface. `muted-quiet` (`#5f7669`) is borderline on the dark field — use it only for large or non-essential text. Candy Pop's muted (`#5f577a`) clears 4.5:1 on white; bump toward ink when in doubt.
 
 ## 3. Typography
 
@@ -197,6 +201,9 @@ A lifted, glowing system — not flat. Depth comes from soft ambient shadow plus
 ### Navigation
 - **Topbar:** sticky, `z-index: 50`, gradient header (`topbar-bg`), rounded bottom corners (`0 0 22px 22px`), soft lift shadow. Holds the brand mark, points pill, pool selector, and icon buttons. Chips on the topbar invert to read on the colored header.
 - **Account menu rows:** full-width 52px rows, raised-surface bg, 14px radius, icon + label + chevron; danger rows use loss-coral.
+
+### Toast
+- **Style:** fixed top-center pill, slides down on show. Two variants, each theme-aware: error (`toast-err-bg`/`toast-err-fg`) and success (`toast-ok-bg`/`toast-ok-fg`). Dark themes use a deep-tinted bg with light text; Candy Pop swaps to a light bg with dark red/green text so the toast follows the active theme instead of staying dark.
 
 ### Signature — Settlement Queue (admin)
 The admin match-settling panel (`sq-*`): a match row that expands to a **multi-select checklist** of outcomes. Each option is a full-width row with a tick box (`sq-box`) that fills lime when a winning outcome is selected; points apply optimistically and are editable until locked. This is the product's most distinctive custom surface — full-width checkable rows, not a card grid, with a "🔒 Chốt" (lock) affordance to finalize.
