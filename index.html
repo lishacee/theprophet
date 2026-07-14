@@ -2092,7 +2092,8 @@ function renderMembers(poolId, rows){
       ? '<button class="btn ghost sm" onclick="blockMember(\''+poolId+'\',\''+m.userId+'\',false)">Bỏ chặn</button>'
       : '<button class="btn ghost sm" style="color:var(--lose);border-color:var(--lose-bd)" onclick="blockMember(\''+poolId+'\',\''+m.userId+'\',true,\''+esn+'\')">Chặn</button>';
     var adjBtn='<button class="btn ghost sm" title="Điều chỉnh điểm" onclick="adjustMember(\''+poolId+'\',\''+m.userId+'\',\''+esn+'\')">＋ điểm</button>';
-    var btn=me?'' : '<div style="display:flex;gap:6px;flex-wrap:wrap;justify-content:flex-end">'+adjBtn+pwBtn+blkBtn+'</div>';
+    // Tự cộng được (minh bạch qua feed); chặn/đổi mật khẩu chính mình thì ẩn vì vô nghĩa.
+    var btn='<div style="display:flex;gap:6px;flex-wrap:wrap;justify-content:flex-end">'+adjBtn+(me?'':pwBtn+blkBtn)+'</div>';
     return '<div class="mbr'+(m.blocked?' blocked':'')+'"><div class="mav" style="background:'+avColor(m.nickname)+'">'+esc(initials(m.nickname))+'</div>'+
       '<div class="mn"><b>'+esc(m.nickname)+'</b>'+meb+blk+'<div class="muted" style="font-size:12px;margin-top:1px">'+n2(m.points)+'đ</div></div>'+btn+'</div>';
   }).join('');
