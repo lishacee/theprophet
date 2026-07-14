@@ -6,7 +6,7 @@
 // old appendRow_('Sheet', [positional array in sheet-column order]).
 export const COLS = {
   Users: ['username','userLower','passHash','salt','nickname','token','tokenExp','createdAt'],
-  Pools: ['poolId','name','tournamentIds','dateFrom','dateTo','status','bookmaker','pointsPerMatch','startMultiplier','noshowPenalty','requirePassword','joinPassword','extraMarkets'],
+  Pools: ['poolId','name','tournamentIds','dateFrom','dateTo','status','bookmaker','pointsPerMatch','startMultiplier','noshowPenalty','requirePassword','joinPassword','extraMarkets','maxStake'],
   CustomMarkets: ['poolId','fixtureId','cid','name','outcomesJson','result','settledAt','createdAt','locked','srcPool','srcCid'],
   Memberships: ['poolId','user','joinAt','startingPoints','currentPoints','pinnedBadges','blocked'],
   Matches: ['poolId','fixtureId','tournamentId','team1','team2','kickoff','statusId','ouLine','ouMarketId','included','settled','penaltyApplied','lastFetchAt','score','ahMarketId'],
@@ -14,6 +14,7 @@ export const COLS = {
   Bets: ['betId','poolId','user','fixtureId','marketType','marketId','outcomeId','stake','lockedOdds','placedAt','result','payout','settledAt'],
   Exemptions: ['poolId','user','fixtureId'],
   Seasons: ['poolId','name','endedAt','standings'],
+  Adjustments: ['poolId','user','delta','reason','byAdmin','at'],
   Cache: ['key','value','updatedAt'],
 };
 

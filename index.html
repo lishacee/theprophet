@@ -508,6 +508,14 @@
     .mbr .mav{ width:34px; height:34px; border-radius:50%; flex:none; display:flex; align-items:center; justify-content:center; font-weight:800; font-size:12.5px; color:#fff; text-shadow:0 1px 2px rgba(0,0,0,.3); }
     .mbr .mn{ flex:1; min-width:0; }
     .mbr .mn b{ font-size:14px; }
+    .adjrow{ display:flex; align-items:flex-start; gap:11px; padding:10px 0; border-bottom:1px solid var(--line); }
+    .adjrow:last-child{ border-bottom:0; }
+    .adjrow .adjav{ width:32px; height:32px; border-radius:50%; flex:none; display:flex; align-items:center; justify-content:center; font-weight:800; font-size:12px; color:#fff; text-shadow:0 1px 2px rgba(0,0,0,.3); }
+    .adjmn{ flex:1; min-width:0; }
+    .adjmn b{ font-size:14px; overflow-wrap:break-word; }
+    .adjreason{ font-size:12.5px; color:var(--mut); margin-top:2px; overflow-wrap:anywhere; }
+    .adjamt{ flex:none; font-weight:900; font-size:14.5px; white-space:nowrap; margin-left:6px; }
+    .adjamt.pos{ color:var(--win); } .adjamt.neg{ color:var(--lose); }
     .blkb{ display:inline-flex; align-items:center; gap:3px; font-size:10.5px; font-weight:800; color:var(--lose);
       background:var(--lose-soft); border:1px solid var(--lose-bd); border-radius:var(--r-pill); padding:1px 7px; margin-left:6px; }
     .meb{ display:inline-flex; align-items:center; gap:3px; font-size:10px; font-weight:800; color:var(--lime);
@@ -734,6 +742,7 @@ function mockRun(fn, a){
     case 'getHistory': return db.hist;
     case 'getCrowd': return db.crowd;
     case 'getSeasons': return db.seasons;
+    case 'getAdjustments': return db.adjustments;
     case 'placeBet': return {currentPoints:920};
     default: return {};   // admin mutations, reload odds, etc. — no-op success
   }
@@ -794,7 +803,11 @@ function mockData(){
     {name:'Mùa 5/2026', endedAt:iso(-1440), champion:{nickname:'Minh',points:1680},
       top:[{nickname:'Minh',points:1680},{nickname:'Trang',points:1340},{nickname:'Nam',points:1120}]}
   ];
-  return { pools:pools, matches:{ minStake:10, maxStake:200, step:10, currentPoints:920, matches:matches }, hist:hist, lb:lb, crowd:crowd, seasons:seasons };
+  var adjustments=[
+    {nickname:'Minh', delta:500, reason:'Thắng minigame dự đoán vòng bảng', at:iso(-4)},
+    {nickname:'Lan', delta:-200, reason:'Sửa nhầm khi chấm kèo góc trận Brazil–Argentina', at:iso(-26)}
+  ];
+  return { pools:pools, matches:{ minStake:10, maxStake:200, step:10, currentPoints:920, matches:matches }, hist:hist, lb:lb, crowd:crowd, seasons:seasons, adjustments:adjustments };
 }
 // Khoá nút khi request đang bay -> chống double-submit (vd tạo trùng sảnh). unbusy khôi phục nhãn.
 function busy(id, txt){ var b=el(id); if(b){ if(b._t==null) b._t=b.innerHTML; b.disabled=true; b.innerHTML=txt; } return b; }
@@ -1780,7 +1793,7 @@ function applyLb(rows){
         '<div class="pts">'+n2(r.points)+'đ</div></div>';
     }).join('');
     var listCard=list?'<div class="card" style="padding:6px 14px">'+list+'</div>':'<div class="card center muted" style="padding:22px">🙋<div style="margin-top:6px">Chưa đủ người chơi để xếp hạng thêm.</div></div>';
-    el('view-lb').innerHTML='<div style="display:flex;justify-content:space-between;align-items:center;margin:4px 2px 12px;gap:10px"><div class="muted" style="font-weight:700;letter-spacing:.3px">BẢNG XẾP HẠNG</div><button class="btn ghost sm" onclick="openSeasons()">🏆 Bảng vàng</button></div>'+podium+meCard+listCard;
+    el('view-lb').innerHTML='<div style="display:flex;justify-content:space-between;align-items:center;margin:4px 2px 12px;gap:10px"><div class="muted" style="font-weight:700;letter-spacing:.3px">BẢNG XẾP HẠNG</div><div style="display:flex;gap:8px"><button class="btn ghost sm" onclick="openAdjust()">📋 Điều chỉnh</button><button class="btn ghost sm" onclick="openSeasons()">🏆 Bảng vàng</button></div></div>'+podium+meCard+listCard;
 }
 // ---- Kết thúc mùa (admin) ----
 function defaultSeasonName(){ var d=new Date(); return 'Mùa '+(d.getMonth()+1)+'/'+d.getFullYear(); }
@@ -1820,6 +1833,24 @@ function seasonCard(s){
   return '<div class="card"><div class="row" style="align-items:center;margin-bottom:8px"><div style="min-width:0"><div style="font-weight:900;font-size:16px">'+esc(s.name)+'</div>'+(when?'<div class="muted" style="font-size:11.5px;margin-top:2px">Kết thúc '+when+'</div>':'')+'</div><span class="chip gold">🏆 '+esc(champ.nickname||'—')+'</span></div>'+rows+'</div>';
 }
 function initials(s){ s=String(s).trim(); return (s[0]||'?').toUpperCase()+(s.split(/\s+/)[1]?s.split(/\s+/)[1][0].toUpperCase():''); }
+// ---- Điều chỉnh điểm (feed minh bạch, ai cũng mở được) ----
+function openAdjust(){
+  var head='<div class="row" style="margin-bottom:12px"><div style="font-weight:900;font-size:18px">📋 Điều chỉnh điểm</div><button class="iconbtn" aria-label="Đóng" onclick="closeModal()">✕</button></div>';
+  showModal(head+'<div id="adj-body"><div class="spin"></div></div>');
+  srun('getAdjustments', TOKEN, CURPOOL).then(function(list){
+    var host=el('adj-body'); if(!host) return;
+    if(!list||!list.length){ host.innerHTML='<div class="card center muted" style="padding:26px">📋<div style="margin-top:8px">Chưa có điều chỉnh điểm nào trong mùa này.</div></div>'; return; }
+    host.innerHTML=list.map(adjCard).join('');
+  }).catch(function(e){ var h=el('adj-body'); if(h) h.innerHTML='<div class="muted center" style="padding:20px">'+esc(e.message||e)+'</div>'; });
+}
+function adjCard(a){
+  var when=''; try{ if(a.at) when=new Date(a.at).toLocaleString('vi-VN',{day:'2-digit',month:'2-digit',hour:'2-digit',minute:'2-digit'}); }catch(e){}
+  var pos=a.delta>=0, amt=(pos?'+':'')+n2(a.delta);
+  return '<div class="adjrow"><div class="adjav" style="background:'+avColor(a.nickname)+'">'+esc(initials(a.nickname))+'</div>'+
+    '<div class="adjmn"><b>'+esc(a.nickname)+'</b><div class="adjreason">'+esc(a.reason)+'</div>'+
+    '<div class="muted" style="font-size:11px;margin-top:2px">'+when+'</div></div>'+
+    '<span class="adjamt '+(pos?'pos':'neg')+'">'+amt+'đ</span></div>';
+}
 
 // ---- Badge popup (chú thích + chọn pin) ----
 var _modalReturnFocus=null;
@@ -1919,7 +1950,8 @@ function toggleApPwd(cb){ var box=el('ap-pwdwrap'); if(box) box.style.display=cb
 function apPreview(){
   var pp=parseFloat(el('ap-pointsPerMatch').value)||0, sm=parseFloat(el('ap-startMultiplier').value)||0;
   var min=el('apv-min'), max=el('apv-max'), st=el('apv-start');
-  if(min) min.textContent=Math.round(pp/2); if(max) max.textContent=Math.round(pp*2);
+  var mx=el('ap-maxStake'), mxv=mx&&parseFloat(mx.value)>0?parseFloat(mx.value):Math.round(pp*2);
+  if(min) min.textContent=Math.round(pp/2); if(max) max.textContent=n2(mxv);
   // Điểm khởi đầu = SỐ TRẬN × điểm/trận × hệ số (khớp joinPool). Chưa import -> hiện "—".
   if(st) st.textContent=AP_MATCHES>0 ? n2(Math.round(pp*sm*AP_MATCHES)) : '—';
   var stl=el('apv-startl'); if(stl) stl.textContent=AP_MATCHES>0 ? ('Khởi đầu · '+AP_MATCHES+' trận') : 'Điểm khởi đầu';
@@ -1932,7 +1964,7 @@ function editPool(poolId){
   }).catch(function(e){ msg(e.message||e); });
 }
 function renderPoolEditor(p){
-  function f(id,label,val,type,hint){ return '<label>'+label+(hint?' <span class="muted" style="font-weight:500">'+hint+'</span>':'')+'</label><input id="ap-'+id+'" '+(type?'type="'+type+'"':'')+' value="'+esc(val==null?'':val)+'"'+((id==='pointsPerMatch'||id==='startMultiplier')?' oninput="apPreview()"':'')+'>'; }
+  function f(id,label,val,type,hint){ return '<label>'+label+(hint?' <span class="muted" style="font-weight:500">'+hint+'</span>':'')+'</label><input id="ap-'+id+'" '+(type?'type="'+type+'"':'')+' value="'+esc(val==null?'':val)+'"'+((id==='pointsPerMatch'||id==='startMultiplier'||id==='maxStake')?' oninput="apPreview()"':'')+'>'; }
   function extMktRow(pool,item){
     var em=(pool.extraMarkets&&pool.extraMarkets[item.key])||{};
     return '<label class="tgl"><div><div class="tt">'+esc(item.label)+'</div><div class="ts">Tỷ lệ tự lấy từ bookmaker khi import/reload odds — không cần nhập tay.</div></div><input type="checkbox" id="ap-ext-'+item.key+'" '+(em.enabled?'checked':'')+'><span class="sw"></span></label>';
@@ -1958,6 +1990,7 @@ function renderPoolEditor(p){
      f('pointsPerMatch','Điểm/trận',p.pointsPerMatch,'number','(gốc tính mọi mức)')+
      f('startMultiplier','Hệ số khởi đầu',p.startMultiplier,'number')+
      f('noshowPenalty','Phạt khi bỏ cược 1 trận',p.noshowPenalty,'number','(0 = không phạt)')+
+     f('maxStake','Max cược/kèo',p.maxStake,'number','(để trống = điểm/trận × 2)')+
      '<div class="apreview"><div class="pc"><div class="v" id="apv-min">—</div><div class="l">Min cược</div></div><div class="pc"><div class="v" id="apv-max">—</div><div class="l">Max cược</div></div><div class="pc"><div class="v" id="apv-start">—</div><div class="l" id="apv-startl">Điểm khởi đầu</div></div></div>'+
    '</div>'+
    /* 4. kèo mở rộng */
@@ -2020,7 +2053,7 @@ function savePool(poolId){
     extraMarkets[it.key]={ enabled: !!(cb && cb.checked) };
   });
   var obj={ name:el('ap-name').value, tournamentIds:getTids().join(','), bookmaker:el('ap-bookmaker').value,
-    pointsPerMatch:el('ap-pointsPerMatch').value, startMultiplier:el('ap-startMultiplier').value, noshowPenalty:el('ap-noshowPenalty').value,
+    pointsPerMatch:el('ap-pointsPerMatch').value, startMultiplier:el('ap-startMultiplier').value, noshowPenalty:el('ap-noshowPenalty').value, maxStake:el('ap-maxStake').value,
     requirePassword:reqPwd, joinPassword:reqPwd?pwd:'', extraMarkets:extraMarkets };
   var b=busy('ap-save','<span class="spin sm"></span> Đang lưu…');
   srun('adminUpdatePool', TOKEN, poolId, obj)
@@ -2058,10 +2091,28 @@ function renderMembers(poolId, rows){
     var blkBtn=m.blocked
       ? '<button class="btn ghost sm" onclick="blockMember(\''+poolId+'\',\''+m.userId+'\',false)">Bỏ chặn</button>'
       : '<button class="btn ghost sm" style="color:var(--lose);border-color:var(--lose-bd)" onclick="blockMember(\''+poolId+'\',\''+m.userId+'\',true,\''+esn+'\')">Chặn</button>';
-    var btn=me?'' : '<div style="display:flex;gap:6px">'+pwBtn+blkBtn+'</div>';
+    var adjBtn='<button class="btn ghost sm" title="Điều chỉnh điểm" onclick="adjustMember(\''+poolId+'\',\''+m.userId+'\',\''+esn+'\')">＋ điểm</button>';
+    var btn=me?'' : '<div style="display:flex;gap:6px;flex-wrap:wrap;justify-content:flex-end">'+adjBtn+pwBtn+blkBtn+'</div>';
     return '<div class="mbr'+(m.blocked?' blocked':'')+'"><div class="mav" style="background:'+avColor(m.nickname)+'">'+esc(initials(m.nickname))+'</div>'+
       '<div class="mn"><b>'+esc(m.nickname)+'</b>'+meb+blk+'<div class="muted" style="font-size:12px;margin-top:1px">'+n2(m.points)+'đ</div></div>'+btn+'</div>';
   }).join('');
+}
+function adjustMember(poolId, userId, name){
+  var head='<div class="row" style="margin-bottom:12px"><div style="font-weight:900;font-size:16px;min-width:0;overflow-wrap:break-word">Điều chỉnh điểm · '+name+'</div><button class="iconbtn" aria-label="Đóng" onclick="closeModal()">✕</button></div>';
+  showModal(head+
+    '<label>Số điểm <span class="muted" style="font-weight:500">(số âm để trừ)</span></label><input id="adj-delta" type="number" inputmode="numeric" placeholder="vd 500 hoặc -200">'+
+    '<label>Lý do</label><input id="adj-reason" placeholder="vd thắng minigame vòng bảng">'+
+    '<div class="muted" style="font-size:11.5px;margin:8px 0 2px;line-height:1.5">Mọi thành viên sẽ thấy điều chỉnh này trong danh sách minh bạch.</div>'+
+    '<button class="btn block" style="margin-top:10px" id="adj-go" onclick="doAdjust(\''+poolId+'\',\''+userId+'\')">Xác nhận</button>');
+}
+function doAdjust(poolId, userId){
+  var delta=Number(el('adj-delta').value), reason=(el('adj-reason').value||'').trim();
+  if(!reason){ msg('Cần lý do điều chỉnh'); return; }
+  if(!delta){ msg('Số điểm không hợp lệ'); return; }
+  var b=busy('adj-go','<span class="spin sm"></span> Đang lưu…');
+  srun('adminAdjustPoints', TOKEN, poolId, userId, delta, reason)
+    .then(function(){ closeModal(); msg('Đã điều chỉnh điểm ✓', true); loadMembers(poolId); })
+    .catch(function(e){ unbusy(b); msg(e.message||e); });
 }
 function blockMember(poolId, userId, block, name){
   if(block && !confirm('Chặn “'+name+'” khỏi sảnh?\n\nNgười này sẽ không cược được, không vào lại được và bị ẩn khỏi bảng xếp hạng. Điểm và kèo cũ vẫn được giữ. Bạn có thể bỏ chặn sau.')) return;
@@ -2247,6 +2298,10 @@ authTab('login');
       if(st==='empty') return [];
       if(st==='longtext'){ var lh=clone(d); lh.forEach(function(r){ r.team1=LONG_T; r.team2='FC '+LONG_T; }); return lh; }
       if(st==='many'){ var h=[]; for(var k=0;k<15;k++){ var r=clone(d[k%d.length]); r.fixtureId='hh'+k; h.push(r);} return h; }
+    }
+    if(fn==='getAdjustments'){
+      if(st==='empty') return [];
+      if(st==='longtext'){ var la=clone(d); la.forEach(function(r){ r.nickname=LONG_N; r.reason=LONG_T+' '+LONG_T; }); return la; }
     }
     if(fn==='getLeaderboard'){
       if(st==='empty') return [];

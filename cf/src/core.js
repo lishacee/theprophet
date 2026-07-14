@@ -24,7 +24,7 @@ export function poolCfg(p){
   return {
     pointsPerMatch: ppm,
     startMultiplier: numOr(p.startMultiplier, START_MULTIPLIER),
-    minStake: ppm / 2, maxStake: ppm * 2,
+    minStake: ppm / 2, maxStake: numOr(p.maxStake, ppm * 2),
     noshowPenalty: (pen === '' || pen == null) ? ppm / 2 : Math.max(0, Number(pen) || 0),
   };
 }

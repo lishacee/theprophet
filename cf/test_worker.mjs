@@ -11,6 +11,7 @@ import * as social from './src/social.js';
 import * as admin from './src/admin.js';
 import { apiGet } from './src/api.js';
 import { settleMatches } from './src/settle.js';
+import * as C from './src/core.js';
 
 // D1 shim: prepare().bind().first()/.all()/.run() + batch() over node:sqlite.
 function d1(db){
@@ -190,6 +191,29 @@ assert.strictEqual(cmB.srcResult, '0,2', 'clone carries source result as settle 
 const again = await admin.adminCloneMarkets(env, boss.token, B.poolId, 'f1', [{ srcPool: poolId, srcCid: cid }]);
 assert.strictEqual(again.n, 1, 'backend allows override re-clone (soft guard)');
 assert.strictEqual(raw.prepare(`SELECT count(*) n FROM CustomMarkets WHERE poolId=? AND srcCid=?`).get(B.poolId, cid).n, 2, 'two copies after override');
+
+// ---- Admin manual point adjustment + transparency feed ----
+const adjPre = Number(raw.prepare(`SELECT currentPoints c FROM Memberships WHERE poolId=? AND user='alice'`).get(poolId).c);
+await assert.rejects(admin.adminAdjustPoints(env, alice.token, poolId, 'alice', 100, 'x'), /quyền admin/, 'non-admin cannot adjust');
+await assert.rejects(admin.adminAdjustPoints(env, boss.token, poolId, 'alice', 0, 'x'), /không hợp lệ/, 'zero delta rejected');
+await assert.rejects(admin.adminAdjustPoints(env, boss.token, poolId, 'alice', 100, '  '), /Cần lý do/, 'empty reason rejected');
+await assert.rejects(admin.adminAdjustPoints(env, boss.token, poolId, 'ghost', 100, 'x'), /Không tìm thấy thành viên/, 'unknown member rejected');
+await admin.adminAdjustPoints(env, boss.token, poolId, 'alice', 500, 'thắng minigame');
+await admin.adminAdjustPoints(env, boss.token, poolId, 'alice', -200, 'sửa nhầm khi chấm');
+assert.strictEqual(Number(raw.prepare(`SELECT currentPoints c FROM Memberships WHERE poolId=? AND user='alice'`).get(poolId).c), adjPre + 300, 'adjust applies signed deltas as net +300 (delta-only, no re-sum)');
+const feed = await social.getAdjustments(env, alice.token, poolId);
+assert.strictEqual(feed.length, 2, 'feed shows both adjustments (member-visible)');
+assert.deepStrictEqual(feed.map(f => f.delta).sort((a, b) => a - b), [-200, 500], 'feed carries both signed deltas');
+assert.strictEqual(feed[0].nickname, 'Alice', 'feed nick-maps recipient');
+assert.ok(!('byAdmin' in feed[0]), 'feed hides admin identity');
+
+// ---- Configurable maxStake: guard >= minStake, empty reverts to default ----
+await assert.rejects(admin.adminUpdatePool(env, boss.token, poolId, { maxStake: 10 }), /Max cược phải ≥/, 'maxStake below minStake rejected');
+const poolRowNow = () => raw.prepare(`SELECT * FROM Pools WHERE poolId=?`).get(poolId);
+await admin.adminUpdatePool(env, boss.token, poolId, { maxStake: 5000 });
+assert.strictEqual(C.poolCfg(poolRowNow()).maxStake, 5000, 'configured maxStake wins over derived ppm*2');
+await admin.adminUpdatePool(env, boss.token, poolId, { maxStake: '' });
+assert.strictEqual(C.poolCfg(poolRowNow()).maxStake, 400 * 2, 'blank maxStake reverts to ppm*2 default');
 
 // ---- Seasons: end-season snapshots the leaderboard into the hall of fame, then resets ----
 assert.deepStrictEqual(await social.getSeasons(env, alice.token, poolId), [], 'no seasons yet');

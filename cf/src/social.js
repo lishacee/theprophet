@@ -206,6 +206,25 @@ export async function getSeasons(env, token, poolId){
   }).sort((a, b) => new Date(b.endedAt) - new Date(a.endedAt));
 }
 
+// Feed điều chỉnh điểm — mọi thành viên xem được (minh bạch). Chỉ mùa hiện tại (>= resetAt),
+// khớp getHistory; hàng cũ vẫn lưu trong DB. byAdmin có lưu nhưng không hiển thị.
+export async function getAdjustments(env, token, poolId){
+  await authUser(env, token);
+  return cached(env, 'adj_' + poolId, 15, async () => {
+    const [rows, userRows] = await batch(env, [
+      env.DB.prepare('SELECT * FROM Adjustments WHERE poolId=?').bind(poolId),
+      env.DB.prepare('SELECT userLower,nickname FROM Users'),
+    ]);
+    const resetRow = await env.DB.prepare('SELECT value FROM Cache WHERE key=?').bind('resetAt_' + poolId).first();
+    const resetAt = resetRow && resetRow.value ? new Date(resetRow.value).getTime() : 0;
+    const nicks = {}; userRows.forEach(u => { nicks[u.userLower] = u.nickname; });
+    return rows
+      .filter(r => new Date(r.at).getTime() > resetAt)
+      .map(r => ({ nickname: nicks[String(r.user).toLowerCase()] || r.user, delta: Number(r.delta), reason: r.reason, at: r.at }))
+      .sort((a, b) => new Date(b.at) - new Date(a.at));
+  });
+}
+
 export async function getCrowd(env, token, poolId, fixtureId){
   const user = await authUser(env, token);
   const [mtRows, allBets, poolRows, userRows, cmsRows, catRows] = await batch(env, [

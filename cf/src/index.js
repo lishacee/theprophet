@@ -27,6 +27,7 @@ const REGISTRY = {
   getHistory:     (env, t, id)     => social.getHistory(env, t, id),
   getCrowd:       (env, t, id, fx) => social.getCrowd(env, t, id, fx),
   getSeasons:     (env, t, id)     => social.getSeasons(env, t, id),
+  getAdjustments: (env, t, id)     => social.getAdjustments(env, t, id),
   // Phase 5 — admin (all gated by requireAdmin inside each)
   adminAddMarket:      (env, t, id, fx, n, o)   => admin.adminAddMarket(env, t, id, fx, n, o),
   adminListClonableMarkets: (env, t, id, fx)    => admin.adminListClonableMarkets(env, t, id, fx),
@@ -53,6 +54,7 @@ const REGISTRY = {
   adminBlockMember:    (env, t, id, u, b)       => admin.adminBlockMember(env, t, id, u, b),
   adminResetPassword:  (env, t, u, np)          => auth.adminResetPassword(env, t, u, np),
   adminEndSeason:      (env, t, id, n)          => admin.adminEndSeason(env, t, id, n),
+  adminAdjustPoints:   (env, t, id, u, d, r)    => admin.adminAdjustPoints(env, t, id, u, d, r),
 };
 
 function cors(env){

@@ -267,6 +267,16 @@ export async function adminUpdatePool(env, token, poolId, obj){
     else { v = (v || '').toString().trim(); }
     patch[k] = v;
   });
+  if ('maxStake' in obj) {
+    if (obj.maxStake === '' || obj.maxStake == null) { patch.maxStake = ''; }  // rỗng = về mặc định ppm×2
+    else {
+      const v = Number(obj.maxStake);
+      if (!(isFinite(v) && v > 0)) throw new Error('Max cược phải là số > 0');
+      const ppm = C.numOr('pointsPerMatch' in obj ? obj.pointsPerMatch : r.pointsPerMatch, C.POINTS_PER_MATCH);
+      if (v < ppm / 2) throw new Error('Max cược phải ≥ ' + (ppm / 2) + ' (mức cược tối thiểu)');
+      patch.maxStake = v;
+    }
+  }
   if ('requirePassword' in obj) patch.requirePassword = obj.requirePassword ? 'Y' : '';
   if ('joinPassword' in obj) patch.joinPassword = String(obj.joinPassword == null ? '' : obj.joinPassword);
   if ('extraMarkets' in obj) {
@@ -294,7 +304,7 @@ async function resetPoolPoints_(env, poolId, pool){
   await env.DB.prepare(`DELETE FROM Bets WHERE poolId=?`).bind(poolId).run();
   await env.DB.prepare(`UPDATE Memberships SET startingPoints=?, currentPoints=? WHERE poolId=?`).bind(String(newStart), String(newStart), poolId).run();
   await setProp(env, 'resetAt_' + poolId, now.toISOString());
-  await cacheBust(env, ['lb_' + poolId]);
+  await cacheBust(env, ['lb_' + poolId, 'adj_' + poolId]);
   return { newStart, matchCount: remaining };
 }
 
@@ -378,6 +388,22 @@ export async function adminListMembers(env, token, poolId){
   const out = [];
   for (const m of mems) out.push({ userId: m.user, nickname: await C.nicknameOf(env, m.user), points: Number(m.currentPoints), blocked: C.isBlocked(m) });
   return out.sort((a, b) => b.points - a.points);
+}
+
+// Admin cộng/trừ điểm thủ công. Một điều chỉnh = một delta (giữ nguyên bất biến addPoints),
+// ghi vào Adjustments để mọi thành viên xem được (getAdjustments) — minh bạch.
+export async function adminAdjustPoints(env, token, poolId, userId, delta, reason){
+  const admin = await requireAdmin(env, token);
+  delta = Math.round(Number(delta));
+  if (!isFinite(delta) || delta === 0) throw new Error('Số điểm không hợp lệ');
+  reason = (reason || '').toString().trim();
+  if (!reason) throw new Error('Cần lý do điều chỉnh');
+  const mem = await C.findMembership(env, poolId, userId);
+  if (!mem) throw new Error('Không tìm thấy thành viên');
+  await addPoints(env, poolId, userId, delta);
+  await appendRow(env, 'Adjustments', [poolId, userId, delta, reason, admin, new Date().toISOString()]);
+  await cacheBust(env, ['lb_' + poolId, 'adj_' + poolId]);
+  return { ok: true, currentPoints: Number(mem.currentPoints) + delta };
 }
 
 export async function adminBlockMember(env, token, poolId, userId, block){

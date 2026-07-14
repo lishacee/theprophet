@@ -15,7 +15,8 @@ CREATE TABLE IF NOT EXISTS Pools (
   poolId TEXT PRIMARY KEY,
   name TEXT, tournamentIds TEXT, dateFrom TEXT, dateTo TEXT, status TEXT,
   bookmaker TEXT, pointsPerMatch TEXT, startMultiplier TEXT, noshowPenalty TEXT,
-  requirePassword TEXT, joinPassword TEXT, extraMarkets TEXT
+  requirePassword TEXT, joinPassword TEXT, extraMarkets TEXT,
+  maxStake TEXT   -- rỗng = mặc định điểm/trận × 2 (poolCfg)
 );
 CREATE INDEX IF NOT EXISTS ix_pools_status ON Pools(status);
 
@@ -68,6 +69,12 @@ CREATE TABLE IF NOT EXISTS Seasons (
   poolId TEXT, name TEXT, endedAt TEXT, standings TEXT
 );
 CREATE INDEX IF NOT EXISTS ix_seasons_pool ON Seasons(poolId);
+
+-- Admin điều chỉnh điểm thủ công. Append-only, không xoá khi reset mùa (feed lọc theo resetAt).
+CREATE TABLE IF NOT EXISTS Adjustments (
+  poolId TEXT, user TEXT, delta TEXT, reason TEXT, byAdmin TEXT, at TEXT
+);
+CREATE INDEX IF NOT EXISTS ix_adj_pool ON Adjustments(poolId);
 
 -- Reused for BOTH cached_() values AND script-properties (ADMINS override, resetAt_<pool>, catalog cache).
 CREATE TABLE IF NOT EXISTS Cache (
